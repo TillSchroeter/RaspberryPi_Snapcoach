@@ -1,5 +1,5 @@
 import time
-from daqhats import OptionFlags, hat_list, HatIDs, mcc128, AnalogInputRange
+from daqhats import OptionFlags, hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode
 
 # 1. Boards auflisten
 board_list = hat_list(filter_by_id=HatIDs.MCC_128)
@@ -14,14 +14,20 @@ else:
         
         # Board initialisieren
         hat = mcc128(entry.address)
-        
+
+        # Bereich auf +/- 5V setzen
+        hat.a_in_range_write(AnalogInputRange.BIP_5V)
+        hat.a_in_mode_write(AnalogInputMode.SE)
+
         # 3. Spannung von Kanal 0 lesen (Test-Lesevorgang)
         # Wenn kein Signal anliegt, sollte hier etwas nahe 0V stehen
         value_cur = hat.a_in_read(0)
         print(f"Test-Messwert Kanal 0: {value_cur:.4f} V")
+        #Kanal 2
+        value_cur2 = hat.a_in_read(2)
+        print(f"Test-Messwert Kanal 2: {value_cur2:.4f} V")
 
-        # Bereich auf +/- 5V setzen
-        hat.a_in_range_write(AnalogInputRange.BIP_5V)
+
 
         # Infos
         # print (f"Board-Info: {hat.info()}")
