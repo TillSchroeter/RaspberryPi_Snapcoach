@@ -1,13 +1,28 @@
+## Messungen
+
 0: counter movement gain 1
 1: statisch gain 1
 2: statisch gain 2
 3: statisch gain 1,                            --> mit spannung ab hier
 4: statisch mit 20kg stange (gain 1)
 5: counter movement gain 1
-
-
-
-
-
-
 mein gewicht laut waage 85kg
+
+
+
+## Messungen Multi kanal
+0: 3 kanäle schwebend
+1: 6 kanäle schnwbend
+2:
+3:
+4: 0x04 maske --> sprung in richtung lange seite
+5: 0x04 maske --> sprung in richtung kurze seite
+6: 0x02 maske --> sprung in richtung lange seite
+7: alle 3 kanal maske 0x07
+10: alle 3 kanal maske 0x07 - counter movement in negative x richtung (kurze seite)
+
+
+
+blau = Fz = CH0H = maske (0x01)
+Rot = Fy = CH1H = maske (0x02)
+gelb = Fx = CH2H = maske (0x04)

@@ -1,65 +1,72 @@
-from daqhats import OptionFlags, hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode
 import time
+import csv
 import numpy as np
-import csv
+from daqhats import hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode, OptionFlags
+import os
 
-import time
-import csv
-from daqhats import hat_list, HatIDs, mcc128, AnalogInputRange, OptionFlags
+# kern 1 reservieren, damit die Messung nicht durch andere Prozesse gestört wird
+# os.sched_setaffinity(0, {1})
+
 
 def measurement(hat, duration_sec, filename):
     sampling_rate = 1000.0
-    total_samples = int(duration_sec * sampling_rate)
+    num_channels = 3
+    channel_mask = 0x07  # Fixe Maske für CH0, CH1, CH2
+    total_frames = int(duration_sec * sampling_rate)
     
-    # Vorberechnung der Kalibrierung (einmalig vor dem Scan)
-    info = hat.info()
-    range_index = 1 # BIP_5V
-    min_v = info.AI_MIN_VOLTAGE[range_index]
-    max_v = info.AI_MAX_VOLTAGE[range_index]
-    min_code = info.AI_MIN_CODE
-    max_code = info.AI_MAX_CODE
-    cal = hat.calibration_coefficient_read(AnalogInputRange.BIP_5V)
-
-    # Scan starten
-    hat.a_in_scan_start(channel_mask=0x01, samples_per_channel=0, 
+    hat.a_in_scan_start(channel_mask=channel_mask, samples_per_channel=0, 
                         sample_rate_per_channel=sampling_rate, 
                         options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
     
-    samples_read = 0
+    frames_written = 0
+    print(f"Messung läuft: {num_channels} Kanäle, {duration_sec}s...")
+    
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["time", "raw_value", "voltage_calc", "voltage_default"])
+        writer.writerow(["time", "CH0_raw", "CH1_raw", "CH2_raw"])
         
         try:
-            while samples_read < total_samples:
+            while frames_written < total_frames:
                 result = hat.a_in_scan_read(samples_per_channel=-1, timeout=0.1)
+                
                 if len(result.data) > 0:
-                    for raw in result.data:
-                        time_val = samples_read / sampling_rate
-                        # Umrechnungen
-                        voltage_calc = min_v + (raw - min_code) * (max_v - min_v) / (max_code - min_code)
-                        voltage_default = (raw * cal.slope + cal.offset)
-                        
-                        writer.writerow([f"{time_val:.3f}", raw, f"{voltage_calc:.4f}", f"{voltage_default:.4f}"])
-                        samples_read += 1
-                        if samples_read >= total_samples: break
-                time.sleep(0.01)
-        except KeyboardInterrupt: pass
+                    # 1. Datenmatrix formen (n x 3)
+                    data_matrix = np.array(result.data).reshape(-1, num_channels)
+                    
+                    # 2. Überhang abschneiden, falls wir über total_frames kommen
+                    remaining = total_frames - frames_written
+                    if data_matrix.shape[0] > remaining:
+                        data_matrix = data_matrix[:remaining, :]
+                    
+                    # 3. Zeitstempel für diesen Block berechnen
+                    current_times = (np.arange(data_matrix.shape[0]) + 1 + frames_written) / sampling_rate
+                    
+                    # 4. Zusammenfügen und als Block schreiben
+                    output_block = np.column_stack((current_times, data_matrix))
+                    writer.writerows(output_block)
+                    
+                    # 5. Counter erhöhen
+                    frames_written += data_matrix.shape[0]
+                
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            print("Abbruch!")
             
     hat.a_in_scan_stop()
     hat.a_in_scan_cleanup()
-    print(f"Messung beendet: {samples_read} Samples.")
+    print(f"Messung beendet. Exakt {frames_written} Zeilen geschrieben.")
 
-# --- HAUPTPROGRAMM (Hier startet dein Script) ---
+
+# --- HAUPTPROGRAMM ---
 if __name__ == "__main__":
     board_list = hat_list(filter_by_id=HatIDs.MCC_128)
     if not board_list:
         print("Kein Board gefunden!")
     else:
         hat1 = mcc128(board_list[0].address)
-        hat1.a_in_mode_write(AnalogInputMode.SE) # WICHTIG: Single-Ended Modus setzen
+        hat1.a_in_mode_write(AnalogInputMode.SE)
         hat1.a_in_range_write(AnalogInputRange.BIP_5V)
         
-        # Aufruf der Funktion
-        pfad = "Messungen/messung_probe5.csv"
+        # Jetzt kannst du hier einfach die Anzahl der Kanäle übergeben:
+        pfad = "Messungen_multiKanal/messung_probe8.csv"
         measurement(hat1, duration_sec=10, filename=pfad)

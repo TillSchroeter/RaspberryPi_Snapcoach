@@ -2,14 +2,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 #Csv importieren
-speicherpfad = "Messungen/messung_probe5"
+speicherpfad = "Messungen/messung_probe6"
 df = pd.read_csv(speicherpfad + ".csv")
 print (df.head())
 
 # digitalen ADC Wert in Newton umrechnen
 # Definitionen der Kapazitäten (bitte an Ihr Kalibrierungsblatt anpassen!)
 # Hier beispielhaft für Ihre Annahmen
-capacity = 1000     # Für Fz
+capacity = 10000    # Für Fz
 gain = 1        # Verstärkung (bitte anpassen, falls verwendet)
 
 # 3. Vektorisierte Umrechnung

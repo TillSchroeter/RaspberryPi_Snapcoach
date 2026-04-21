@@ -1,95 +1,62 @@
 from daqhats import OptionFlags, hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode
 import time
 import numpy as np
+import time
 import csv
 
-### Boards auflisten
-board_list = hat_list(filter_by_id=HatIDs.MCC_128)
-
-# checken, ob Boards gefunden wurden
-if board_list:
-    print(f"Gefundene Boards: {len(board_list)}")
-
-    for entry in board_list:
-        print(f"Board gefunden an Adresse: {entry.address}")
-else:
-    print("Keine MCC 128 Boards gefunden. Jumper checken!")
-
-
-### Boards initialisieren
-hat1 = mcc128(board_list[0].address)
-
-### Spannungsbereich auf +/- 5V setzen
-hat1.a_in_range_write(AnalogInputRange.BIP_5V)
-hat1.a_in_mode_write(AnalogInputMode.SE)
-
-# ### Scan bauen
-# # Die Maske 0x3F würde bedeuten: Kanäle 0, 1, 2, 3, 4, 5 sind aktiv (1+2+4+8+16+32 = 63 = 0x3F) hier jetz nur einen kanal aktivieren: 0x01
-
-# channel_mask = 0x01 
-# samples_per_channel = 0     # 0 für kontinuierlichen Betrieb
-# sample_rate = 1000          # 1000 Hz pro Kanal
-# options = OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA
-
-# # Scan starten
-# hat1.a_in_scan_start(channel_mask, samples_per_channel, sample_rate, options)
-
-
 def measurement(hat, duration_sec, filename):
-    sampling_rate = 1000.0  # Hz
+    sampling_rate = 1000.0
     total_samples = int(duration_sec * sampling_rate)
     
-    # Scan starten (Kanal 0)
+    # Vorberechnung der Kalibrierung (einmalig vor dem Scan)
+    info = hat.info()
+    range_index = 1 # BIP_5V
+    min_v = info.AI_MIN_VOLTAGE[range_index]
+    max_v = info.AI_MAX_VOLTAGE[range_index]
+    min_code = info.AI_MIN_CODE
+    max_code = info.AI_MAX_CODE
+    cal = hat.calibration_coefficient_read(AnalogInputRange.BIP_5V)
+
+    # Scan starten
     hat.a_in_scan_start(channel_mask=0x01, samples_per_channel=0, 
                         sample_rate_per_channel=sampling_rate, 
                         options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
     
-    print(f"Messung läuft für {duration_sec} Sekunden ({total_samples} Samples)...")
-    
     samples_read = 0
-    
-    with open(filename, mode='w', newline='') as file: # 'w' überschreibt die Datei
+    with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["time", "channel_0"]) # Kopfzeile
+        writer.writerow(["time", "raw_value", "voltage_calc", "voltage_default"])
         
         try:
             while samples_read < total_samples:
-                # Wir lesen kleine Blöcke aus dem Puffer
                 result = hat.a_in_scan_read(samples_per_channel=-1, timeout=0.1)
-                
-                if result.buffer_overrun:
-                    print("FEHLER: Buffer voll!")
-                    break
-                
                 if len(result.data) > 0:
-                    # print(f"Gelese Daten: {len(result.data)} Samples")
-                    for value in result.data:
-                        # Berechne Zeit basierend auf Counter
+                    for raw in result.data:
                         time_val = samples_read / sampling_rate
-                        writer.writerow([f"{time_val:.3f}", value])
-                        samples_read += 1
+                        # Umrechnungen
+                        voltage_calc = min_v + (raw - min_code) * (max_v - min_v) / (max_code - min_code)
+                        voltage_default = (raw * cal.slope + cal.offset)
                         
-                        # Abbruch, falls Ziel erreicht
-                        if samples_read >= total_samples:
-                            break
-                
-                time.sleep(0.1) # Kurzes Sleep für die CPU
-                # print("pause")
+                        writer.writerow([f"{time_val:.3f}", raw, f"{voltage_calc:.4f}", f"{voltage_default:.4f}"])
+                        samples_read += 1
+                        if samples_read >= total_samples: break
+                time.sleep(0.01)
+        except KeyboardInterrupt: pass
+            
+    hat.a_in_scan_stop()
+    hat.a_in_scan_cleanup()
+    print(f"Messung beendet: {samples_read} Samples.")
 
-        except KeyboardInterrupt:
-            print("Messung vorzeitig abgebrochen.")
-
-    # Aufräumen
-    hat.a_in_scan_stop()        # Scan stoppen
-    hat.a_in_scan_cleanup()     # Ressourcen freigeben
-
-    print(f"Messung beendet. Daten gespeichert in {filename}")
-
-    
-
-### Aufruf der Funktion (Beispiel: 10 Sekunden)
-speicherpfad = "Messungen/messung_probe3.csv"
-measurement(hat1, 10, speicherpfad)
-
-
-
+# --- HAUPTPROGRAMM (Hier startet dein Script) ---
+if __name__ == "__main__":
+    board_list = hat_list(filter_by_id=HatIDs.MCC_128)
+    if not board_list:
+        print("Kein Board gefunden!")
+    else:
+        hat1 = mcc128(board_list[0].address)
+        hat1.a_in_mode_write(AnalogInputMode.SE) # WICHTIG: Single-Ended Modus setzen
+        hat1.a_in_range_write(AnalogInputRange.BIP_5V)
+        
+        # Aufruf der Funktion
+        pfad = "Messungen/messung_probe6.csv"
+        measurement(hat1, duration_sec=5, filename=pfad)
