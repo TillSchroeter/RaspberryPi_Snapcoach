@@ -8,10 +8,10 @@ import os
 # os.sched_setaffinity(0, {1})
 
 
-def measurement(hat, duration_sec, filename):
+def measurement(hat, duration_sec, filename, num_channels, sampling_rate = 1000.0):
     sampling_rate = 1000.0
-    num_channels = 3
-    channel_mask = 0x07  # Fixe Maske für CH0, CH1, CH2
+    # num_channels = 3
+    channel_mask = sum([1 << i for i in range(num_channels)])  # Dynamische Berechnung der Kanalmaske
     total_frames = int(duration_sec * sampling_rate)
     
     hat.a_in_scan_start(channel_mask=channel_mask, samples_per_channel=0, 
@@ -32,7 +32,9 @@ def measurement(hat, duration_sec, filename):
                 if len(result.data) > 0:
                     # 1. Datenmatrix formen (n x 3)
                     data_matrix = np.array(result.data).reshape(-1, num_channels)
-                    
+                    print (len(result.data), " Datenpunkte gelesen")
+                    print (result.data[:9], " Erste 10 Datenpunkte")
+
                     # 2. Überhang abschneiden, falls wir über total_frames kommen
                     remaining = total_frames - frames_written
                     if data_matrix.shape[0] > remaining:
@@ -47,8 +49,10 @@ def measurement(hat, duration_sec, filename):
                     
                     # 5. Counter erhöhen
                     frames_written += data_matrix.shape[0]
-                
-                time.sleep(0.1)
+                    print (f"{data_matrix.shape[0]} Frames")    
+
+
+                # time.sleep(0.01)
         except KeyboardInterrupt:
             print("Abbruch!")
             
@@ -63,10 +67,10 @@ if __name__ == "__main__":
     if not board_list:
         print("Kein Board gefunden!")
     else:
-        hat1 = mcc128(board_list[0].address)
+        hat1 = mcc128(board_list[1].address)
         hat1.a_in_mode_write(AnalogInputMode.SE)
         hat1.a_in_range_write(AnalogInputRange.BIP_5V)
         
         # Jetzt kannst du hier einfach die Anzahl der Kanäle übergeben:
-        pfad = "Messungen_multiKanal/messung_probe8.csv"
-        measurement(hat1, duration_sec=10, filename=pfad)
+        pfad = "Messungen_multiKanal/egal.csv"
+        measurement(hat1, duration_sec=0.5, filename=pfad, num_channels=3)

@@ -6,6 +6,7 @@
 3: statisch gain 1,                            --> mit spannung ab hier
 4: statisch mit 20kg stange (gain 1)
 5: counter movement gain 1
+
 mein gewicht laut waage 85kg
 
 
