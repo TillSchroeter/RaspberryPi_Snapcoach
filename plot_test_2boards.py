@@ -43,13 +43,13 @@ def plot_messung_6_channels(filename):
     
     # HAT 1 plotten
     ax1.plot(df['time'], df['CH0_hat1'], label='CH0_hat1')
-    ax1.plot(df['time'], df['CH1_hat1'], label='CH1_hat1')
-    ax1.plot(df['time'], df['CH2_hat1'], label='CH2_hat1')
-    ax1.plot(df['time'], df['CH3_hat1'], label='CH3_hat1')
-    ax1.plot(df['time'], df['CH4_hat1'], label='CH4_hat1')
-    ax1.plot(df['time'], df['CH5_hat1'], label='CH5_hat1')
+    # ax1.plot(df['time'], df['CH1_hat1'], label='CH1_hat1')
+    # ax1.plot(df['time'], df['CH2_hat1'], label='CH2_hat1')
+    # ax1.plot(df['time'], df['CH3_hat1'], label='CH3_hat1')
+    # ax1.plot(df['time'], df['CH4_hat1'], label='CH4_hat1')
+    # ax1.plot(df['time'], df['CH5_hat1'], label='CH5_hat1')
 
-    ax1.set_xlim(0, 0.1)
+    # ax1.set_xlim(0, 0.1)
     ax1.set_title('MCC 128 - Board 1')
     ax1.set_ylabel('ADC Rohwert')
     ax1.legend()
@@ -57,13 +57,13 @@ def plot_messung_6_channels(filename):
     
     # HAT 2 plotten
     ax2.plot(df['time'], df['CH0_hat2'], label='CH0_hat2')
-    ax2.plot(df['time'], df['CH1_hat2'], label='CH1_hat2')
-    ax2.plot(df['time'], df['CH2_hat2'], label='CH2_hat2')
-    ax2.plot(df['time'], df['CH3_hat2'], label='CH3_hat2')
-    ax2.plot(df['time'], df['CH4_hat2'], label='CH4_hat2')
-    ax2.plot(df['time'], df['CH5_hat2'], label='CH5_hat2')
+    # ax2.plot(df['time'], df['CH1_hat2'], label='CH1_hat2')
+    # ax2.plot(df['time'], df['CH2_hat2'], label='CH2_hat2')
+    # ax2.plot(df['time'], df['CH3_hat2'], label='CH3_hat2')
+    # ax2.plot(df['time'], df['CH4_hat2'], label='CH4_hat2')
+    # ax2.plot(df['time'], df['CH5_hat2'], label='CH5_hat2')
 
-    ax2.set_xlim(0, 0.1)
+    # ax2.set_xlim(0, 0.1)
     ax2.set_title('MCC 128 - Board 2')
     ax2.set_xlabel('Zeit [s]')
     ax2.set_ylabel('ADC Rohwert')
@@ -77,4 +77,4 @@ def plot_messung_6_channels(filename):
 
 
 # Dateipfad hier anpassen
-plot_messung_6_channels('Messungen_2_Boards/messung_probe2')
+plot_messung_6_channels('Messungen_2_Boards/messung_probe4')

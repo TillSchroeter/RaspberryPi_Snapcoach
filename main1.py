@@ -85,5 +85,5 @@ if __name__ == "__main__":
         hat2.a_in_range_write(AnalogInputRange.BIP_5V)
         
         # Jetzt kannst du hier einfach die Anzahl der Kanäle übergeben:
-        pfad = "Messungen_2_Boards/messung_probe2.csv"
-        measurement(hat1, hat2, duration_sec=1, filename=pfad, num_channels = 6, sampling_rate = 1000.0)
+        pfad = "Messungen_2_Boards/messung_probe4.csv"
+        measurement(hat1, hat2, duration_sec=7, filename=pfad, num_channels = 1, sampling_rate = 1000.0)
