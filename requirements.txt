@@ -2,3 +2,6 @@ numpy
 daqhats
 matplotlib
 pandas
+pygame
+pyqtgraph
+PyQt6

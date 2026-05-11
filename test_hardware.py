@@ -1,6 +1,8 @@
 import time
 from daqhats import OptionFlags, hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode
 
+
+
 # 1. Boards auflisten
 board_list = hat_list(filter_by_id=HatIDs.MCC_128)
 

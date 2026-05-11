@@ -19,44 +19,31 @@ def measurement(hat1, hat2, duration_sec, filename, num_channels = 3, sampling_r
                         sample_rate_per_channel=sampling_rate, 
                         options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
 
-    hat2.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0, 
+    hat2.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0,
                         sample_rate_per_channel=sampling_rate, 
                         options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
-    
+    #samples_per_channel=0 bedeutet hier: Messe unendlich lange weiter, bis ich "Stopp" sage.
 
     frames_written = 0
-    samples_per_block = 100  # Anzahl der Proben pro Block
     try:
         while frames_written < total_frames:
-            # Wir fordern einen ganzen Block an
-            result1 = hat1.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
-            result2 = hat2.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
+            # Lese einen vollen Datensatz (1 sample pro kanal * num_channels)
+            result1 = hat1.a_in_scan_read(samples_per_channel=1, timeout=0.1)
+            result2 = hat2.a_in_scan_read(samples_per_channel=1, timeout=0.1)
             
-            # Berechne, wie viele vollständige Zeilen wir wirklich bekommen haben
-            # (falls der Puffer am Ende der Messung weniger als 100 hergibt)
-            num_received = len(result1.data) // num_channels
+            if len(result1.data) == num_channels and len(result2.data) == num_channels:
+                # Zeitstempel berechnen
+                t = (frames_written + 1) / sampling_rate
+                
+                # In unser Array schreiben
+                all_data[frames_written, 0] = t
+                all_data[frames_written, 1:1+num_channels] = result1.data
+                all_data[frames_written, 1+num_channels:] = result2.data
+                
+                frames_written += 1
             
-            if num_received > 0:
-                # Berechne den Index-Bereich für diesen Block
-                end_idx = min(frames_written + num_received, total_frames)
-                count = end_idx - frames_written
-                
-                # Zeitstempel für diesen Block berechnen
-                # Wir erzeugen eine Sequenz für die Zeitstempel dieses Blocks
-                indices = np.arange(frames_written + 1, frames_written + count + 1)
-                all_data[frames_written:end_idx, 0] = indices / sampling_rate
-                
-                # Daten in Array schreiben (Reshape der flachen Liste in 2D-Block)
-                block1 = np.array(result1.data[:count * num_channels]).reshape(count, num_channels)
-                block2 = np.array(result2.data[:count * num_channels]).reshape(count, num_channels)
-                
-                all_data[frames_written:end_idx, 1:1+num_channels] = block1
-                all_data[frames_written:end_idx, 1+num_channels:] = block2
-                
-                frames_written += count
-            
-            # Ein kurzes Sleep ist weiterhin okay, aber bei Blöcken 
-            # steuert die Hardware durch das Warten auf Daten den Takt.
+            # Kein sleep() nötig, wenn wir so schnell wie möglich sammeln wollen, 
+            # aber ein minimaler sleep schont die CPU für andere Prozesse
             # time.sleep(0.001)
 
     except KeyboardInterrupt:
@@ -75,12 +62,13 @@ def measurement(hat1, hat2, duration_sec, filename, num_channels = 3, sampling_r
     # 2. Speichern mit Formatierung
     # %.3f für die Zeit (3 Nachkommastellen)
     # %d für die ADC-Werte (Integer)
-    fmt = ['%.3f'] + ['%d'] * (2 * num_channels)
+    fmt = ['%.4f'] + ['%d'] * (2 * num_channels)
     
     np.savetxt(filename, all_data[:frames_written, :], delimiter=",", 
                header=",".join(header), comments='', fmt=fmt)
 
     print("Fertig!")
+
 
 
 # --- HAUPTPROGRAMM ---
@@ -98,5 +86,7 @@ if __name__ == "__main__":
         hat2.a_in_range_write(AnalogInputRange.BIP_5V)
         
         # Jetzt kannst du hier einfach die Anzahl der Kanäle übergeben:
-        pfad = "Messungen_2_Boards/messung_probe0.csv"
-        measurement(hat1, hat2, duration_sec=1, filename=pfad, num_channels = 3, sampling_rate = 1000.0)
+        pfad = "Messungen_2_Boards/messung_probe6.csv"
+        measurement(hat1, hat2, duration_sec=2, filename=pfad, num_channels = 1, sampling_rate = 1000.0)
+
+        

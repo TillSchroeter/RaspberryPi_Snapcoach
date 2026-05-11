@@ -43,8 +43,8 @@ def plot_messung_6_channels(filename):
     
     # HAT 1 plotten
     ax1.plot(df['time'], df['CH0_hat1'], label='CH0_hat1')
-    # ax1.plot(df['time'], df['CH1_hat1'], label='CH1_hat1')
-    # ax1.plot(df['time'], df['CH2_hat1'], label='CH2_hat1')
+    ax1.plot(df['time'], df['CH1_hat1'], label='CH1_hat1')
+    ax1.plot(df['time'], df['CH2_hat1'], label='CH2_hat1')
     # ax1.plot(df['time'], df['CH3_hat1'], label='CH3_hat1')
     # ax1.plot(df['time'], df['CH4_hat1'], label='CH4_hat1')
     # ax1.plot(df['time'], df['CH5_hat1'], label='CH5_hat1')
@@ -57,8 +57,8 @@ def plot_messung_6_channels(filename):
     
     # HAT 2 plotten
     ax2.plot(df['time'], df['CH0_hat2'], label='CH0_hat2')
-    # ax2.plot(df['time'], df['CH1_hat2'], label='CH1_hat2')
-    # ax2.plot(df['time'], df['CH2_hat2'], label='CH2_hat2')
+    ax2.plot(df['time'], df['CH1_hat2'], label='CH1_hat2')
+    ax2.plot(df['time'], df['CH2_hat2'], label='CH2_hat2')
     # ax2.plot(df['time'], df['CH3_hat2'], label='CH3_hat2')
     # ax2.plot(df['time'], df['CH4_hat2'], label='CH4_hat2')
     # ax2.plot(df['time'], df['CH5_hat2'], label='CH5_hat2')
@@ -77,4 +77,4 @@ def plot_messung_6_channels(filename):
 
 
 # Dateipfad hier anpassen
-plot_messung_6_channels('Messungen_2_Boards/messung_probe4')
+plot_messung_6_channels('Messungen_2_Boards/messung_probe7')
