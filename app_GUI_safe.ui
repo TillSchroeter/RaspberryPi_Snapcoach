@@ -830,7 +830,7 @@ font-weight: bold; /* Wenn es fett gedruckt sein soll */</string>
            <string>Kraftplots und ausgewählte Parameter</string>
           </property>
          </widget>
-         <widget class="QWidget" name="plot_links_Kraft" native="true">
+         <widget class="QWidget" name="plot_links_kraft" native="true">
           <property name="geometry">
            <rect>
             <x>20</x>
