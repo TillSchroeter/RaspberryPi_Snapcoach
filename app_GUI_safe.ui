@@ -188,13 +188,13 @@ QTableWidget::item:selected {
        <attribute name="title">
         <string>Steuerung</string>
        </attribute>
-       <widget class="QFrame" name="signal_frame">
+       <widget class="QFrame" name="frame">
         <property name="geometry">
          <rect>
-          <x>0</x>
+          <x>-10</x>
           <y>0</y>
-          <width>1261</width>
-          <height>621</height>
+          <width>1271</width>
+          <height>631</height>
          </rect>
         </property>
         <property name="styleSheet">
@@ -349,7 +349,7 @@ font-weight: bold; /* Wenn es fett gedruckt sein soll */</string>
            <x>900</x>
            <y>200</y>
            <width>340</width>
-           <height>30</height>
+           <height>60</height>
           </rect>
          </property>
          <property name="font">
@@ -371,7 +371,7 @@ font-weight: bold; /* Wenn es fett gedruckt sein soll */</string>
            <x>530</x>
            <y>200</y>
            <width>340</width>
-           <height>30</height>
+           <height>60</height>
           </rect>
          </property>
          <property name="font">
@@ -735,9 +735,9 @@ color: #333333; /* Ein dunkles Grau/Schwarz für die Lesbarkeit */
          <property name="geometry">
           <rect>
            <x>530</x>
-           <y>240</y>
+           <y>310</y>
            <width>340</width>
-           <height>30</height>
+           <height>60</height>
           </rect>
          </property>
          <property name="font">
@@ -752,31 +752,70 @@ color: #333333; /* Ein dunkles Grau/Schwarz für die Lesbarkeit */
          <property name="text">
           <string/>
          </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
         </widget>
-       </widget>
-       <widget class="QLabel" name="art_trigg">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>20</y>
-          <width>391</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="font">
-         <font>
-          <pointsize>-1</pointsize>
-          <weight>75</weight>
-          <bold>true</bold>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">font-size: 20px;
+        <widget class="QLabel" name="art_trigg">
+         <property name="geometry">
+          <rect>
+           <x>20</x>
+           <y>20</y>
+           <width>391</width>
+           <height>31</height>
+          </rect>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">font-size: 20px;
 font-weight: bold; /* Wenn es fett gedruckt sein soll */</string>
-        </property>
-        <property name="text">
-         <string>Wählen Sie die Art der Triggerung:</string>
-        </property>
+         </property>
+         <property name="text">
+          <string>Wählen Sie die Art der Triggerung:</string>
+         </property>
+        </widget>
+        <widget class="QFrame" name="signal_frame">
+         <property name="geometry">
+          <rect>
+           <x>9</x>
+           <y>-1</y>
+           <width>1251</width>
+           <height>601</height>
+          </rect>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+        </widget>
+        <zorder>akustisch</zorder>
+        <zorder>visuell</zorder>
+        <zorder>par_frequenz</zorder>
+        <zorder>par_dauer</zorder>
+        <zorder>dauer</zorder>
+        <zorder>frequenz</zorder>
+        <zorder>status_neue_mess</zorder>
+        <zorder>status_mess_start</zorder>
+        <zorder>btn_neue_messung</zorder>
+        <zorder>btn_start_messung</zorder>
+        <zorder>speichern</zorder>
+        <zorder>speichern_ja</zorder>
+        <zorder>speichern_nein</zorder>
+        <zorder>box_art</zorder>
+        <zorder>box_ver_nr</zorder>
+        <zorder>label_ver_nr</zorder>
+        <zorder>label_art</zorder>
+        <zorder>status_speichern</zorder>
+        <zorder>art_trigg</zorder>
+        <zorder>signal_frame</zorder>
        </widget>
       </widget>
       <widget class="QWidget" name="Auswertung">

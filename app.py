@@ -74,62 +74,58 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.gruppe_speichern.addButton(self.speichern_ja)
         self.gruppe_speichern.addButton(self.speichern_nein)
 
-        ### ploting vorbereiten
+        ### 1. Visuelles Feedback zurücksetzen, signal frame transparent machen und nach hinten schicken
+        self.signal_frame.setStyleSheet("background-color: transparent;")
+        self.signal_frame.lower()
+
+        ### plotting vorbereiten
         # 1. Plot-Widgets erstellen
         self.pw_links_kraft = pg.PlotWidget()
         self.pw_rechts_kraft = pg.PlotWidget()
-
         self.pw_links_moment = pg.PlotWidget()
         self.pw_rechts_moment = pg.PlotWidget()
 
-        # 2. Die Plot-Widgets in deine Designer-Widgets einbetten
-        # Wir erstellen Layouts für deine Platzhalter-Widgets
-        layout_l_kraft = QtWidgets.QVBoxLayout(self.plot_links_kraft)
-        layout_r_kraft = QtWidgets.QVBoxLayout(self.plot_rechts_kraft)
-        layout_l_kraft.addWidget(self.pw_links_kraft)
-        layout_r_kraft.addWidget(self.pw_rechts_kraft)
+        # Liste für die einfachere Konfiguration in Schleifen
+        self.all_plots = [
+            self.pw_links_kraft, self.pw_rechts_kraft, 
+            self.pw_links_moment, self.pw_rechts_moment
+        ]
 
-        layout_l_moment = QtWidgets.QVBoxLayout(self.plot_links_moment)
-        layout_r_moment = QtWidgets.QVBoxLayout(self.plot_rechts_moment)
-        layout_l_moment.addWidget(self.pw_links_moment)
-        layout_r_moment.addWidget(self.pw_rechts_moment)
+        # 2. Die Plot-Widgets in deine Designer-Layouts einbetten
+        QtWidgets.QVBoxLayout(self.plot_links_kraft).addWidget(self.pw_links_kraft)
+        QtWidgets.QVBoxLayout(self.plot_rechts_kraft).addWidget(self.pw_rechts_kraft)
+        QtWidgets.QVBoxLayout(self.plot_links_moment).addWidget(self.pw_links_moment)
+        QtWidgets.QVBoxLayout(self.plot_rechts_moment).addWidget(self.pw_rechts_moment)
 
-        # 3. Optik anpassen (Weißer Hintergrund)
-        self.pw_links_kraft.setBackground('w') # 'w' für weiß
-        self.pw_rechts_kraft.setBackground('w')
-        self.pw_links_moment.setBackground('w')
-        self.pw_rechts_moment.setBackground('w')
+        # 3. Gemeinsame Optik für alle Plots (Schwarze Achsen, Weißer Hintergrund)
+        label_style = {'color': '#000', 'font-size': '12pt'}
+        
+        for pw in self.all_plots:
+            pw.setBackground('w')
+            # Achsen (Linien) auf Schwarz
+            pw.getAxis('left').setPen('k')
+            pw.getAxis('bottom').setPen('k')
+            # Zahlen (Ticks) und Beschriftungen auf Schwarz setzen
+            pw.getAxis('left').setTextPen('k')
+            pw.getAxis('bottom').setTextPen('k')
+            # Standard X-Achsen Beschriftung (Zeit ist bei allen gleich)
+            pw.setLabel('bottom', 'Zeit', units='s', **label_style)
+            # Legende hier EINMALIG erstellen
+            pw.addLegend(offset=(10, 10), labelTextColor='k')
 
-        # Achsenfarben auf Schwarz setzen, damit sie auf weiß sichtbar sind
-        self.pw_links_kraft.getAxis('left').setPen('k') # 'k' steht für schwarz
-        self.pw_links_kraft.getAxis('bottom').setPen('k')
-        self.pw_rechts_kraft.getAxis('left').setPen('k')
-        self.pw_rechts_kraft.getAxis('bottom').setPen('k')
-
-        self.pw_links_moment.getAxis('left').setPen('k')
-        self.pw_links_moment.getAxis('bottom').setPen('k')
-        self.pw_rechts_moment.getAxis('left').setPen('k')
-        self.pw_rechts_moment.getAxis('bottom').setPen('k')
-
-        # Achsen für den linken Plot beschriften
-        self.pw_links_kraft.setLabel('left', 'F', units='N')      # Y-Achse: F in Newton
-        self.pw_links_kraft.setLabel('bottom', 't', units='s')    # X-Achse: t in Sekunden
-
-        self.pw_links_moment.setLabel('left', 'M', units='Nm')   # Y-Achse: M in Newtonmeter
-        self.pw_links_moment.setLabel('bottom', 't', units='s')  # X-Achse: t in Sekunden
-
-        # Achsen für den rechten Plot beschriften
-        self.pw_rechts_kraft.setLabel('left', 'F', units='N')
-        self.pw_rechts_kraft.setLabel('bottom', 't', units='s')
-
-        self.pw_rechts_moment.setLabel('left', 'M', units='Nm')
-        self.pw_rechts_moment.setLabel('bottom', 't', units='s')
-
-        # Titel-Farbe auf Schwarz ändern
+        # 4. Spezifische Beschriftungen und Titel
+        # --- KRAFT ---
+        self.pw_links_kraft.setLabel('left', 'Kraft', units='N', **label_style)
         self.pw_links_kraft.setTitle("Linke Hand - Kraft", color="k", size="12pt")
+        
+        self.pw_rechts_kraft.setLabel('left', 'Kraft', units='N', **label_style)
         self.pw_rechts_kraft.setTitle("Rechte Hand - Kraft", color="k", size="12pt")
 
+        # --- MOMENT ---
+        self.pw_links_moment.setLabel('left', 'Moment', units='Nm', **label_style)
         self.pw_links_moment.setTitle("Linke Hand - Moment", color="k", size="12pt")
+        
+        self.pw_rechts_moment.setLabel('left', 'Moment', units='Nm', **label_style)
         self.pw_rechts_moment.setTitle("Rechte Hand - Moment", color="k", size="12pt")
 
 
@@ -142,6 +138,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def starte_messung(self):
+        # altes label wenn vorhanden zurücksetzen
+        self.reset_label(self.status_neue_mess)
+
         # 1. Prüfen ob Trigger gewählt
         if not self.visuell.isChecked() and not self.akustisch.isChecked():
             self.status_mess_start.setText("Bitte Trigger wählen!")
@@ -178,40 +177,46 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             nr_wahl = self.box_ver_nr.currentText()
             
             # Dateiname nach deinem Wunsch: Art_Nr_Datum_Uhrzeit
-            self.aktueller_dateiname = f"Gui_Messungen/{art_wahl}_Nr{nr_wahl}_{zeitstempel}.csv"
+            # Der volle Pfad für das System zum Speichern
+            dateiname_nur = f"{art_wahl}_Nr{nr_wahl}_{zeitstempel}.csv"
+            self.aktueller_dateiname = f"Gui_Messungen/{dateiname_nur}"
             self.soll_speichern = True
-            self.speicherstatus = f"Messung als: \n{self.aktueller_dateiname} gespeichert"
+            self.speicherstatus = f"Messung als: \n{dateiname_nur}\nspeichern."
             print(f"Dateiname generiert: {self.aktueller_dateiname}")
+            self.status_speichern.setStyleSheet(style_grün)
         else:
             self.aktueller_dateiname = None
             self.soll_speichern = False
             self.speicherstatus = "Messung wird nicht gespeichert (nur Anzeige)."
             print("Messung wird nicht gespeichert (nur Anzeige).")
-
+            self.status_speichern.setStyleSheet(style_grau)
 
         #Variablen
-        vorbereitung = 750 #ms
+        vorbereitung = 2000 #ms
 
         # Vorbereitung: Status setzen für messung starten
         self.status_mess_start.setText("Bereit machen...")
         self.status_mess_start.setStyleSheet(style_grau)
         # Status setzen für Speicherung
         self.status_speichern.setText(self.speicherstatus)
-        self.status_speichern.setStyleSheet(style_grau)
+        
 
         # Timer starten: die Funktion 'reset_label' aufrufen
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_mess_start))
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_speichern))
 
         # Hebt den Frame über alle anderen Elemente
-        self.signal_frame.raise_()
+        # self.signal_frame.raise_()
 
         ### Kette starten: Nach 0,75s wird das Bild WEISS (Vorbereitung für Athlet)
         QTimer.singleShot(vorbereitung, self.trigger_vorbereitung)
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def trigger_vorbereitung(self):
-        # Ganzen Frame weiß machen
-        self.signal_frame.setStyleSheet("background-color: white;")
+        # Frame nach ganz vorne holen und anzeigen
+        self.signal_frame.raise_()
+        self.signal_frame.show()
+        # Weiß machen
+        self.signal_frame.setStyleSheet("background-color: white; border: none;")
         
         # 4. Zufallszeit zwischen 1500ms und 3500ms würfeln
         zufall_ms = random.randint(1500, 3500)
@@ -220,7 +225,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         QTimer.singleShot(zufall_ms, self.trigger_ausloesen)
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def trigger_ausloesen(self):
-        # 5. Den eigentlichen Trigger anzeigen
+        # Sicherheitshalber nochmal nach vorne holen
+        self.signal_frame.raise_()
+
+        # Den eigentlichen Trigger anzeigen
         if self.visuell.isChecked():
             self.signal_frame.setStyleSheet("background-color: green;")
             print("VISUELLER REIZ!")
@@ -424,49 +432,56 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             # 2. Zum Tab-Widget für die Graphen wechseln (Plotting-Tab)
             self.tabWidget.setCurrentIndex(1) 
 
-            # 2. Vorherige Plots & Legenden löschen
-            for pw in [self.pw_links_kraft, self.pw_rechts_kraft, self.pw_links_moment, self.pw_rechts_moment]:
-                pw.clear()
-                # Falls schon eine Legende existiert, entfernen wir sie, um Dopplungen zu vermeiden
-                if pw.plotItem.legend:
-                    pw.plotItem.legend.scene().removeItem(pw.plotItem.legend)
-                pw.addLegend(offset=(10, 10), labelTextColor='k') # Legende oben links hinzufügen
+            # Vorherige Plots löschen - Die Legende bleibt durch das clear() 
+            # erhalten, wird aber geleert und beim Plotten neu befüllt.
+            self.pw_links_kraft.clear()
+            self.pw_rechts_kraft.clear()
+            self.pw_links_moment.clear()
+            self.pw_rechts_moment.clear()
 
             zeit = processed_data[:, 0]
 
             # --- MATPLOTLIB FARBEN & STIL ---
             # Breite 2.0 ist deutlich besser sichtbar auf dem 7" Screen
-            pen_x = pg.mkPen(color='#1f77b4', width=2.5) # Blau
-            pen_y = pg.mkPen(color='#ff7f0e', width=2.5) # Orange
-            pen_z = pg.mkPen(color='#2ca02c', width=2.5) # Grün
+            pen_x = pg.mkPen(color='#1f77b4', width=2) # Blau
+            pen_y = pg.mkPen(color='#ff7f0e', width=2) # Orange
+            pen_z = pg.mkPen(color='#2ca02c', width=2) # Grün
 
             # --- LINKS PLOTTEN ---
             # Kraft
-            self.pw_links_kraft.plot(zeit, processed_data[:, 1], pen=pen_x, name="Fx (Links)")
-            self.pw_links_kraft.plot(zeit, processed_data[:, 2], pen=pen_y, name="Fy (Links)")
-            self.pw_links_kraft.plot(zeit, processed_data[:, 3], pen=pen_z, name="Fz (Links)")
+            self.pw_links_kraft.plot(zeit, processed_data[:, 1], pen=pen_x, name="Fx")
+            self.pw_links_kraft.plot(zeit, processed_data[:, 2], pen=pen_y, name="Fy")
+            self.pw_links_kraft.plot(zeit, processed_data[:, 3], pen=pen_z, name="Fz")
             
             # Momente
-            self.pw_links_moment.plot(zeit, processed_data[:, 4], pen=pen_x, name="Mx (Links)")
-            self.pw_links_moment.plot(zeit, processed_data[:, 5], pen=pen_y, name="My (Links)")
-            self.pw_links_moment.plot(zeit, processed_data[:, 6], pen=pen_z, name="Mz (Links)")
+            self.pw_links_moment.plot(zeit, processed_data[:, 4], pen=pen_x, name="Mx")
+            self.pw_links_moment.plot(zeit, processed_data[:, 5], pen=pen_y, name="My")
+            self.pw_links_moment.plot(zeit, processed_data[:, 6], pen=pen_z, name="Mz")
 
             # --- RECHTS PLOTTEN ---
             # Kraft
-            self.pw_rechts_kraft.plot(zeit, processed_data[:, 7], pen=pen_x, name="Fx (Rechts)")
-            self.pw_rechts_kraft.plot(zeit, processed_data[:, 8], pen=pen_y, name="Fy (Rechts)")
-            self.pw_rechts_kraft.plot(zeit, processed_data[:, 9], pen=pen_z, name="Fz (Rechts)")
+            self.pw_rechts_kraft.plot(zeit, processed_data[:, 7], pen=pen_x, name="Fx")
+            self.pw_rechts_kraft.plot(zeit, processed_data[:, 8], pen=pen_y, name="Fy")
+            self.pw_rechts_kraft.plot(zeit, processed_data[:, 9], pen=pen_z, name="Fz")
             
             # Momente
-            self.pw_rechts_moment.plot(zeit, processed_data[:, 10], pen=pen_x, name="Mx (Rechts)")
-            self.pw_rechts_moment.plot(zeit, processed_data[:, 11], pen=pen_y, name="My (Rechts)")
-            self.pw_rechts_moment.plot(zeit, processed_data[:, 12], pen=pen_z, name="Mz (Rechts)")
+            self.pw_rechts_moment.plot(zeit, processed_data[:, 10], pen=pen_x, name="Mx")
+            self.pw_rechts_moment.plot(zeit, processed_data[:, 11], pen=pen_y, name="My")
+            self.pw_rechts_moment.plot(zeit, processed_data[:, 12], pen=pen_z, name="Mz")
 
             # 3. Zoom anpassen
             for pw in [self.pw_links_kraft, self.pw_rechts_kraft, self.pw_links_moment, self.pw_rechts_moment]:
                 pw.autoRange()
             
             # hier würden dann noch die parameter kommen.
+
+
+            # UI für Änderungen sperren, bis "Neue Messung" gedrückt wird
+            self.set_ui_enabled(False)
+            # altes label wenn vorhanden zurücksetzen
+            self.reset_label(self.status_neue_mess)
+            # # Fokus auf den "Neue Messung" Button lenken (optional)
+            # self.btn_neue_messung.setFocus()
         
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def play_sound(self, sound):
@@ -482,12 +497,58 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # print("Fertig.")
   
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+
     def neue_messung(self):
-        self.status_neue_mess.setText("Neue Messung bereit!")
+        # 1. Speicherstatus prüfen & Nummer nur bei Erfolg hochzählen
+        wurde_gespeichert = hasattr(self, 'soll_speichern') and self.soll_speichern
+        
+        if wurde_gespeichert and self.aktueller_dateiname:
+            datei_kurz = self.aktueller_dateiname.split('/')[-1]
+            status_text = f"letze Messung gespeichert:\n{datei_kurz}\nBereit für neue Messung!"
+            
+            # NUR JETZT die Nummer hochsetzen
+            aktuelle_nr_index = self.box_ver_nr.currentIndex()
+            if aktuelle_nr_index < self.box_ver_nr.count() - 1:
+                self.box_ver_nr.setCurrentIndex(aktuelle_nr_index + 1)
+        else:
+            status_text = "Letzte Messung nicht gespeichert.\nBereit für neue Messung!"
+
+        # 2. UI wieder freigeben
+        self.set_ui_enabled(True)
+
+        # 3. RadioButtons wirklich abwählen (über die ButtonGroups)
+        self.gruppe_speichern.setExclusive(False)
+        self.gruppe_trigger.setExclusive(False)
+        
+        self.speichern_ja.setChecked(False)
+        self.speichern_nein.setChecked(False)
+        self.visuell.setChecked(False)
+        self.akustisch.setChecked(False)
+        
+        self.gruppe_speichern.setExclusive(True)
+        self.gruppe_trigger.setExclusive(True)
+
+        # 4. Restliches Feedback
+        self.status_neue_mess.setText(status_text)
         self.status_neue_mess.setStyleSheet(style_grün)
-                                            
-        # 2. Timer starten: Nach 2000ms (2 Sek) die Funktion 'reset_label' aufrufen
-        QTimer.singleShot(2000, lambda: self.reset_label(self.status_neue_mess))
+        for pw in self.all_plots:
+            pw.clear()
+        
+        # QTimer.singleShot(4000, lambda: self.reset_label(self.status_neue_mess))
+    
+    """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+    def set_ui_enabled(self, state):
+        """Aktiviert oder deaktiviert alle Eingaben auf dem Steuerungs-Tab"""
+        # Liste aller Widgets, die gesperrt werden sollen
+        widgets = [
+            self.speichern_ja, self.speichern_nein, 
+            self.visuell, self.akustisch,
+            self.box_art, self.box_ver_nr, 
+            self.par_dauer, self.par_frequenz,
+            self.btn_start_messung
+        ]
+        for w in widgets:
+            w.setEnabled(state)
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def reset_label(self, name_button):
