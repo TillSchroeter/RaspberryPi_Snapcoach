@@ -233,8 +233,8 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.signal_frame.setStyleSheet("background-color: green;")
             print("VISUELLER REIZ!")
         else:
-            self.signal_frame.setStyleSheet("background-color: blue;")
-            # self.play_sound(self.sound)
+            # self.signal_frame.setStyleSheet("background-color: blue;")
+            self.play_sound(self.sound)
             print("AKUSTISCHER REIZ!")
 
         # WICHTIG: Erzwinge das Neuzeichnen des Bildschirms JETZT
@@ -273,15 +273,25 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         print(f"Messung wird gestartet: {num_channels} Kanäle bei zwei Boards und {duration_sec}s...")
 
 
-        hat1.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0, 
+        # hat1.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0, 
+        #                     sample_rate_per_channel=sampling_rate, 
+        #                     options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
+
+        # hat2.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0,
+        #                     sample_rate_per_channel=sampling_rate, 
+        #                     options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock (von Board 0) synchronisiert beide Boards
+        # #samples_per_channel=0 bedeutet hier: Messe unendlich lange weiter, bis ich "Stopp" sage.
+
+        hat1.a_in_scan_start(channel_mask = 0x77,
+                            samples_per_channel=0, 
                             sample_rate_per_channel=sampling_rate, 
                             options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
 
-        hat2.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0,
+        hat2.a_in_scan_start(channel_mask = 0x77,
+                            samples_per_channel=0,
                             sample_rate_per_channel=sampling_rate, 
-                            options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock (von Board 0) synchronisiert beide Boards
-        #samples_per_channel=0 bedeutet hier: Messe unendlich lange weiter, bis ich "Stopp" sage.
-
+                            options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock
+        # 0x77 maske für 0,1,2  4,5,6
 
         samples_per_block = 100
         frames_written = 0
@@ -389,8 +399,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # 2. Baseline-Korrektur (Tara)
         # Wir berechnen den Nullpunkt-Offset aus den ersten 10 Zeilen der Messung
         # (Voraussetzung: Proband übt zu Beginn noch keine Kraft aus)
-        offset = np.mean(data_phys[:10, 1:], axis=0)
-        data_phys[:, 1:] -= offset
+        # offset = np.mean(data_phys[:10, 1:], axis=0)
+        # data_phys[:, 1:] -= offset
+        
 
         # 3. Definition der Skalierungsfaktoren (MaxLoad / 32768)
         f_fx_fy = 5000.0 / 32768.0      # Fx und Fy haben den faktor 5000 N bei voller Auslenkung
@@ -399,6 +410,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         f_my    = 1000.0 / 32768.0      # My hat den faktor 1000 Nm bei voller Auslenkung
         f_mz    = 750.0 / 32768.0       # Mz hat den faktor 750 Nm bei voller Auslenkung
 
+        # für alle daten einmal die Mitte des Messbereiches vom ADC rohwert abziehen
+        ## Kraft (N) = (ADC_Rohwert - 32768) * (Maximalbereich(N) / 32768)
+        data_phys[:, 1:] -= 32768.0
         # 4. Faktoren auf Board 1 (Links) anwenden
         data_phys[:, 1] *= f_fx_fy  # CH0: Fx
         data_phys[:, 2] *= f_fx_fy  # CH1: Fy
@@ -486,7 +500,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def play_sound(self, sound):
         # Lade die Sound-Datei
-        sound.set_volume(0.1)  # 10% Lautstärke
+        sound.set_volume(0.5)  # 10% Lautstärke
         
         # Spiele den Sound ab
         # print("Spiele Ton ab...")

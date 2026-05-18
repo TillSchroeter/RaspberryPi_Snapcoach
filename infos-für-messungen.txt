@@ -37,3 +37,17 @@ gelb = Fx = CH2H = maske (0x04)
 4: Messung mit KMP z auf board 0 (unten) und x auf board 1 (oben) --> sprung drauf und noch ein CMJ
 5: 1 kanal pro board, immer 100 samples auf einmal reinschreiben
 6: 1 kanal pro board, immer 1 samples auf einmal reinschreiben
+
+
+## messungen mit GUI (rechte hand aktiv)
+
+#test
+mein gewicht: 86.3 kg
+20kg platte
+test 9 mit händen
+test 10 nichts drauf --> grundrauschen der platte
+
+#athlet 1 (kabel innen durch)
+nr1 dirket 20 kg drauf
+nr2 counter movement mit schon drauf stehen
+nr3 komplett leer

@@ -11,7 +11,7 @@ def play_sound(file_path):
     pygame.mixer.init()
     # Lade die Sound-Datei
     sound = pygame.mixer.Sound(file_path)
-    sound.set_volume(0.1)  # 10% Lautstärke
+    sound.set_volume(0.5)  # 10% Lautstärke
     
     # Spiele den Sound ab
     print("Spiele Ton ab...")
