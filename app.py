@@ -8,6 +8,7 @@ import random
 import time
 from daqhats import hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode, OptionFlags
 import pygame
+import RPi.GPIO as GPIO
 
 # from daten import probe_funktion
 # from main import measurement
@@ -17,13 +18,16 @@ board_list = hat_list(filter_by_id=HatIDs.MCC_128)
 if not board_list:
     print("Kein Board gefunden!")
 else:
-    hat1 = mcc128(board_list[0].address)
-    hat1.a_in_mode_write(AnalogInputMode.SE)
-    hat1.a_in_range_write(AnalogInputRange.BIP_5V)
+    # Board 0 ist Links, Board 1 ist Rechts
+    hat_links = mcc128(board_list[0].address)
+    hat_links.a_in_mode_write(AnalogInputMode.SE)
+    hat_links.a_in_range_write(AnalogInputRange.BIP_5V)
 
-    hat2 = mcc128(board_list[1].address)
-    hat2.a_in_mode_write(AnalogInputMode.SE)
-    hat2.a_in_range_write(AnalogInputRange.BIP_5V)
+    hat_rechts = mcc128(board_list[1].address)
+    hat_rechts.a_in_mode_write(AnalogInputMode.SE)
+    hat_rechts.a_in_range_write(AnalogInputRange.BIP_5V)
+
+### Initialisieren der GPIOs
 
 
 ### styles für die Status-Labels
@@ -53,12 +57,17 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         ### Initialisierung der Hauptklasse
         super().__init__()
         # Die UI-Datei laden
-        uic.loadUi("app_GUI_safe.ui", self)
+        uic.loadUi("app_GUI.ui", self)
         
         ### sound laden
         # Initialisiere das Sound-Modul
         pygame.mixer.init()
         self.sound = pygame.mixer.Sound("beep-01a.wav")
+
+        ### GPIO Konfiguration für die Optokoppler 
+        self.PIN_LINKS = 23         # 23 ist links (blaue)
+        self.PIN_RECHTS = 24        # 24 ist rechts (orange)
+        self.init_gpio()
 
         ### channels für messung festlegen
         self.num_channels = 6  # Anzahl der Kanäle pro Board, die gemessen werden sollen
@@ -69,10 +78,15 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.gruppe_trigger.addButton(self.visuell)
         self.gruppe_trigger.addButton(self.akustisch)
 
-        # Gruppe 2: Eine andere Frage (z.B. Versuchs-Typ)
+        # Gruppe 2: Speichern Frage
         self.gruppe_speichern = QButtonGroup(self)
         self.gruppe_speichern.addButton(self.speichern_ja)
         self.gruppe_speichern.addButton(self.speichern_nein)
+
+        # Gruppe 3: Autozero frage
+        self.gruppe_az_option = QButtonGroup(self)
+        self.gruppe_az_option.addButton(self.auto_zero_ja)
+        self.gruppe_az_option.addButton(self.auto_zero_nein)
 
         ### 1. Visuelles Feedback zurücksetzen, signal frame transparent machen und nach hinten schicken
         self.signal_frame.setStyleSheet("background-color: transparent;")
@@ -131,7 +145,8 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
         ### Die Buttons mit Funktionen verbinden
         self.btn_start_messung.clicked.connect(self.starte_messung)
-        self.btn_neue_messung.clicked.connect(self.neue_messung)  # Beispiel: Beide Buttons starten die gleiche Funktion
+        self.btn_neue_messung.clicked.connect(self.neue_messung)
+        self.btn_auto_zero.clicked.connect(self.manuelle_auto_zero_ausloesung)
 
         # 0 = Erster Tab, 1 = Zweiter Tab --> Steuerungs-Tab als Standard setzen
         self.tabWidget.setCurrentIndex(0)
@@ -141,7 +156,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # altes label wenn vorhanden zurücksetzen
         self.reset_label(self.status_neue_mess)
 
-        # 1. Prüfen ob Trigger gewählt
+        ### Prüfen ob Trigger gewählt
         if not self.visuell.isChecked() and not self.akustisch.isChecked():
             self.status_mess_start.setText("Bitte Trigger wählen!")
             self.status_mess_start.setStyleSheet(style_rot)
@@ -167,8 +182,15 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                 self.status_mess_start.setStyleSheet(style_rot)
                 QTimer.singleShot(3000, lambda: self.reset_label(self.status_mess_start))
                 return
+        ### Frage nach Auto-Zero vor der Messung prüfen
+        # Prüfen ob die Option "Auto-Zero vor Start" angewählt ist
+        if not self.auto_zero_ja.isChecked() and not self.auto_zero_nein.isChecked():
+            self.status_mess_start.setText("Bitte Auto-Zero Option wählen!")
+            self.status_mess_start.setStyleSheet(style_rot)
+            QTimer.singleShot(3000, lambda: self.reset_label(self.status_mess_start))
+            return
 
-        # Wenn wir hier ankommen, sind alle Validierungen bestanden!
+        # Wenn wir hier ankommen, sind alle Validierungen bestanden fürs Speichern
         if self.speichern_ja.isChecked():
             # Zeitstempel: JahrMonatTag_StundeMinuteSekunde (z.B. 20240520_143005)
             zeitstempel = time.strftime("%Y%m%d_%H%M%S")
@@ -191,6 +213,15 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             print("Messung wird nicht gespeichert (nur Anzeige).")
             self.status_speichern.setStyleSheet(style_grau)
 
+        # Automatisierter Auto-Zero Ablauf VOR Messungsstart
+        if self.auto_zero_ja.isChecked():
+            self.status_auto_zero.setText("Automatischer Auto-Zero wird vor der messung ausgeführt")
+            self.status_auto_zero.setStyleSheet(style_grün)
+            QtWidgets.QApplication.processEvents()
+            self.trigger_hardware_auto_zero()
+            self.status_auto_zero.setStyleSheet(style_grün)
+            QTimer.singleShot(3000, lambda: self.reset_label(self.status_auto_zero))
+
         #Variablen
         vorbereitung = 2000 #ms
 
@@ -204,11 +235,13 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # Timer starten: die Funktion 'reset_label' aufrufen
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_mess_start))
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_speichern))
+        QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_auto_zero))
+
 
         # Hebt den Frame über alle anderen Elemente
         # self.signal_frame.raise_()
 
-        ### Kette starten: Nach 0,75s wird das Bild WEISS (Vorbereitung für Athlet)
+        ### Kette starten: wird das Bild WEISS (Vorbereitung für Athlet)
         QTimer.singleShot(vorbereitung, self.trigger_vorbereitung)
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def trigger_vorbereitung(self):
@@ -245,7 +278,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         frequenz = self.par_frequenz.value()
 
         ### Hier rufen wir die Messfunktion auf, die die Daten von den Boards abholt
-        mess_daten, frames_written = self.measurement (hat1, hat2, duration_sec = dauer, num_channels = self.num_channels, sampling_rate = frequenz)
+        mess_daten, frames_written = self.measurement (hat_links, hat_rechts, duration_sec = dauer, num_channels = self.num_channels, sampling_rate = frequenz)
         # Rohwerte in physikalische Einheiten umrechnen
         mess_daten_phys = self.werte_verarbeiten(mess_daten)
 
@@ -260,7 +293,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # QTimer.singleShot(wartezeit_ms, lambda: self.messung_beenden(mess_daten))
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
-    def measurement(self, hat1, hat2, duration_sec, num_channels = 6, sampling_rate = 1000.0):
+    def measurement(self, hat_links, hat_rechts, duration_sec, num_channels = 6, sampling_rate = 1000.0):
         # sampling_rate = 1000.0
         # num_channels = 3
         channel_mask = (0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF)     # Maske für alle acht Kanäle (immer von channel 0 bis channel num_channels - 1)
@@ -273,21 +306,21 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         print(f"Messung wird gestartet: {num_channels} Kanäle bei zwei Boards und {duration_sec}s...")
 
 
-        # hat1.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0, 
+        # hat_links.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0, 
         #                     sample_rate_per_channel=sampling_rate, 
         #                     options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
 
-        # hat2.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0,
+        # hat_rechts.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0,
         #                     sample_rate_per_channel=sampling_rate, 
         #                     options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock (von Board 0) synchronisiert beide Boards
         # #samples_per_channel=0 bedeutet hier: Messe unendlich lange weiter, bis ich "Stopp" sage.
 
-        hat1.a_in_scan_start(channel_mask = 0x77,
+        hat_links.a_in_scan_start(channel_mask = 0x77,
                             samples_per_channel=0, 
                             sample_rate_per_channel=sampling_rate, 
                             options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
 
-        hat2.a_in_scan_start(channel_mask = 0x77,
+        hat_rechts.a_in_scan_start(channel_mask = 0x77,
                             samples_per_channel=0,
                             sample_rate_per_channel=sampling_rate, 
                             options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock
@@ -298,8 +331,8 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         try:
             while frames_written < total_frames:
                 # 1. Daten abholen (wartet bis zu 0.1s auf die 100 Samples)
-                result1 = hat1.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
-                result2 = hat2.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
+                result1 = hat_links.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
+                result2 = hat_rechts.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
                 # print ("hier in der Schleife")
 
                 # 2. Prüfen, wie viele Zeilen wir WIRKLICH bekommen haben
@@ -344,10 +377,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             print("Abbruch!")
 
         # Cleanup
-        hat1.a_in_scan_stop()
-        hat2.a_in_scan_stop()
-        hat1.a_in_scan_cleanup()
-        hat2.a_in_scan_cleanup()
+        hat_links.a_in_scan_stop()
+        hat_rechts.a_in_scan_stop()
+        hat_links.a_in_scan_cleanup()
+        hat_rechts.a_in_scan_cleanup()
 
         return all_data, frames_written
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
@@ -411,7 +444,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         f_mz    = 750.0 / 32768.0       # Mz hat den faktor 750 Nm bei voller Auslenkung
 
         # für alle daten einmal die Mitte des Messbereiches vom ADC rohwert abziehen
-        ## Kraft (N) = (ADC_Rohwert - 32768) * (Maximalbereich(N) / 32768)
+        # Formel: Kraft (N) = (ADC_Rohwert - 32768) * (Maximalbereich(N) / 32768)
         data_phys[:, 1:] -= 32768.0
         # 4. Faktoren auf Board 1 (Links) anwenden
         data_phys[:, 1] *= f_fx_fy  # CH0: Fx
@@ -494,7 +527,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.set_ui_enabled(False)
             # altes label wenn vorhanden zurücksetzen
             self.reset_label(self.status_neue_mess)
-            # # Fokus auf den "Neue Messung" Button lenken (optional)
+            # # Fokus auf den "Neue Messung" Button lenken
             # self.btn_neue_messung.setFocus()
         
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
@@ -533,14 +566,18 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # 3. RadioButtons wirklich abwählen (über die ButtonGroups)
         self.gruppe_speichern.setExclusive(False)
         self.gruppe_trigger.setExclusive(False)
+        self.gruppe_az_option.setExclusive(False)
         
         self.speichern_ja.setChecked(False)
         self.speichern_nein.setChecked(False)
         self.visuell.setChecked(False)
         self.akustisch.setChecked(False)
+        self.auto_zero_ja.setChecked(False)
+        self.auto_zero_nein.setChecked(False)
         
         self.gruppe_speichern.setExclusive(True)
         self.gruppe_trigger.setExclusive(True)
+        self.gruppe_az_option.setExclusive(True)
 
         # 4. Restliches Feedback
         self.status_neue_mess.setText(status_text)
@@ -559,7 +596,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.visuell, self.akustisch,
             self.box_art, self.box_ver_nr, 
             self.par_dauer, self.par_frequenz,
-            self.btn_start_messung
+            self.btn_start_messung,
+            self.auto_zero_ja, self.auto_zero_nein,
+            self.btn_auto_zero
         ]
         for w in widgets:
             w.setEnabled(state)
@@ -571,14 +610,47 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         name_button.setStyleSheet("background-color: transparent;")
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
-    
+    def init_gpio(self):
+        """Initialisiert die Hardware-Pins für die Optokoppler"""
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.PIN_LINKS, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.PIN_RECHTS, GPIO.OUT, initial=GPIO.LOW)
+
+    """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+    def trigger_hardware_auto_zero(self):
+        """Erzeugt den benötigten High-Puls an den Optokopplern"""
+        GPIO.output(self.PIN_LINKS, GPIO.HIGH)
+        GPIO.output(self.PIN_RECHTS, GPIO.HIGH)
+        time.sleep(0.1)  # 100ms Schaltimpuls
+        GPIO.output(self.PIN_LINKS, GPIO.LOW)
+        GPIO.output(self.PIN_RECHTS, GPIO.LOW)
+        time.sleep(0.2)  # Einschwingzeit für KMP-Verstärker
+
+    """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+    def manuelle_auto_zero_ausloesung(self):
+        """Führt Auto-Zero über den direkten GUI-Button aus"""
+        self.status_auto_zero.setText("Auto-Zero wird ausgeführt...")
+        self.status_auto_zero.setStyleSheet(style_grau)
+        QtWidgets.QApplication.processEvents()
+        
+        self.trigger_hardware_auto_zero()
+        
+        self.status_auto_zero.setText("Hardware Auto-Zero abgeschlossen!")
+        self.status_auto_zero.setStyleSheet(style_grün)
+        QTimer.singleShot(3000, lambda: self.reset_label(self.status_auto_zero))
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def keyPressEvent(self, event):
         """Fängt Tastendrücke ab (Not-Aus mit ESC)"""
         # In PyQt6 ist die Konstante Key_Escape
         if event.key() == Qt.Key.Key_Escape:
             print("Not-Aus: Programm wird über ESC beendet.")
+            GPIO.cleanup()
             self.close()
+    def closeEvent(self, event):
+        """Bereinigt die GPIOs beim regulären Schließen des Fensters"""
+        if GPIO_AVAILABLE:
+            GPIO.cleanup()
+        event.accept()
 
 # Standard-Startblock für PyQt6
 if __name__ == "__main__":
