@@ -160,6 +160,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # altes label wenn vorhanden zurücksetzen
         self.reset_label(self.status_neue_mess)
 
+        # #Sreenshot von der aktuellen Einstellung
+        # self.screenshot_speichern("00_Vor_Messung_Einstellungen")
+
         ### Prüfen ob Trigger gewählt
         if not self.visuell.isChecked() and not self.akustisch.isChecked():
             self.status_mess_start.setText("Bitte Trigger wählen!")
@@ -238,6 +241,8 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # Status setzen für Speicherung
         self.status_speichern.setText(self.speicherstatus)
         
+        # #Sreenshot von der aktuellen Einstellung
+        # self.screenshot_speichern("00_Vor_Messung_Mit_Einstellungen")
 
         # Timer starten: die Funktion 'reset_label' aufrufen
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_mess_start))
@@ -259,6 +264,12 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # Weiß machen
         self.signal_frame.setStyleSheet("background-color: white; border: none;")
         
+        # # WICHTIG: Qt anweisen, das Weiß-Werden sofort auf dem Display zu rendern
+        # QtWidgets.QApplication.processEvents()
+        
+        # # NEU: Screenshot vom weißen Zustand speichern
+        # self.screenshot_speichern("01_Bereit_Weiss")
+
         # 4. Zufallszeit zwischen 1500ms und 3500ms würfeln
         zufall_ms = random.randint(1500, 3500)
         
@@ -273,6 +284,11 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         if self.visuell.isChecked():
             self.signal_frame.setStyleSheet("background-color: green;")
             print("VISUELLER REIZ!")
+            # # WICHTIG: Erzwinge das Neuzeichnen (Grün-Werden) JETZT vor dem Screenshot
+            # QtWidgets.QApplication.processEvents()
+            
+            # # NEU: Screenshot vom grünen Zustand speichern
+            # self.screenshot_speichern("02_Reiz_Gruen")
         else:
             # self.signal_frame.setStyleSheet("background-color: blue;")
             self.play_sound(self.sound)
@@ -480,6 +496,12 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             [1-3]: L_Fx, L_Fy, L_Fz | [4-6]: L_Mx, L_My, L_Mz
             [7-9]: R_Fx, R_Fy, R_Fz | [10-12]: R_Mx, R_My, R_Mz
             """
+            # --- TRIGGERART IM LABEL ANZEIGEN ---
+            if self.visuell.isChecked():
+                self.par_bedingung.setText("Visueller Reiz")
+            else:
+                self.par_bedingung.setText("Akustischer Reiz")
+
             # 1. Visuelles Feedback zurücksetzen
             self.signal_frame.setStyleSheet("background-color: transparent;")
             self.signal_frame.lower()
@@ -594,10 +616,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                 text_rechts = "Kein Wert"
 
             # --- TABELLE: tabelle_reaktion_li_re BEFÜLLEN ---
-            # Zeile 0: Linke Hand, Spalte 0: Reaktionszeit
+            # Tabelle hat 1 Zeile (Index 0) und 2 Spalten: Spalte 0 = Links, Spalte 1 = Rechts
             self.tabelle_reaktion_li_re.setItem(0, 0, QtWidgets.QTableWidgetItem(text_links))
-            # Zeile 1: Rechte Hand, Spalte 0: Reaktionszeit
-            self.tabelle_reaktion_li_re.setItem(1, 0, QtWidgets.QTableWidgetItem(text_rechts))
+            self.tabelle_reaktion_li_re.setItem(0, 1, QtWidgets.QTableWidgetItem(text_rechts))
 
             # --- DURCHSCHNITT UND DIFFERENZ BERECHNEN ---
             if reaktion_links is not None and reaktion_rechts is not None:
@@ -610,17 +631,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                 text_differenz = "N/A"
 
             # --- TABELLE: tabelle_reaktion_durchschnitt BEFÜLLEN ---
-            # Zeile 0: Durchschnitt, Spalte 0: Reaktionszeit
+            # Bereinigte Adressierung ohne redundante, fehlerhafte Doppelaufrufe
             self.tabelle_reaktion_durchschnitt.setItem(0, 0, QtWidgets.QTableWidgetItem(text_durchschnitt))
-            # Zeile 1: Differenz (Unterschied), Spalte 0: Reaktionszeit
             self.tabelle_reaktion_durchschnitt.setItem(1, 0, QtWidgets.QTableWidgetItem(text_differenz))
-
-            # --- TABELLE: tabelle_reaktion_durchschnitt BEFÜLLEN ---
-            # Spalte 0 ist die Spalte für die "Reaktionszeit"
-            # Zeile 1: Durchschnitt
-            self.tabelle_reaktion_durchschnitt.setItem(1, 0, QtWidgets.QTableWidgetItem(text_durchschnitt))
-            # Zeile 2: Differenz (Unterschied)
-            self.tabelle_reaktion_durchschnitt.setItem(2, 0, QtWidgets.QTableWidgetItem(text_differenz))
 
 
             # UI für Änderungen sperren, bis "Neue Messung" gedrückt wird
@@ -692,10 +705,21 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.tabelle_reaktion_li_re, 
             self.tabelle_reaktion_durchschnitt
         ]
-        for tabelle in tabellen_liste:
-            for row in [1, 2]:
-                for col in [0, 1, 2]:
+        # Tabellen-Inhalte struktursicher leeren
+        # 1. Kraft- und Momententabelle: Erst ab Zeile 1 (Index 1) leeren, um Header-Texte zu schützen
+        for tabelle in [self.tabelle_kraft, self.tabelle_moment]:
+            for row in range(1, tabelle.rowCount()):  # Startet bei 1 statt 0
+                for col in range(tabelle.columnCount()):
                     tabelle.setItem(row, col, QtWidgets.QTableWidgetItem(""))
+
+        # 2. Reaktionstabellen: Komplett ab Zeile 0 (Index 0) leeren
+        for tabelle in [self.tabelle_reaktion_li_re, self.tabelle_reaktion_durchschnitt]:
+            for row in range(tabelle.rowCount()):      # Startet komplett bei 0
+                for col in range(tabelle.columnCount()):
+                    tabelle.setItem(row, col, QtWidgets.QTableWidgetItem(""))
+        
+        # altes label wenn vorhanden zurücksetzen
+        self.reset_label(self.par_bedingung)
         
         # QTimer.singleShot(4000, lambda: self.reset_label(self.status_neue_mess))
     
@@ -751,6 +775,25 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.status_auto_zero.setStyleSheet(style_grün)
         QTimer.singleShot(3000, lambda: self.reset_label(self.status_auto_zero))
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+    def screenshot_speichern(self, dateiname_zusatz):
+        """Erstellt einen Screenshot des gesamten Fensters und speichert ihn ab"""
+        # Ordner definieren (analog zu Ihren Messdaten)
+        import os
+        os.makedirs("GUI_Screenshots", exist_ok=True)
+        
+        # Zeitstempel für den Dateinamen generieren
+        zeit = time.strftime("%Y%m%d_%H%M%S")
+        filepath = f"GUI_Screenshots/Screenshot_{dateiname_zusatz}_{zeit}.png"
+        
+        # Das gesamte Hauptfenster als Bild erfassen
+        screen = self.grab()
+        
+        # Speichern
+        if screen.save(filepath, "PNG"):
+            print(f"Screenshot erfolgreich gespeichert: {filepath}")
+        else:
+            print("Fehler beim Speichern des Screenshots.")
+
     def keyPressEvent(self, event):
         """Fängt Tastendrücke ab (Not-Aus mit ESC)"""
         # In PyQt6 ist die Konstante Key_Escape
