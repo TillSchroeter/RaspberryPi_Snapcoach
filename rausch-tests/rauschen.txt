@@ -1,0 +1,30 @@
+
+1: unteres board (oberes nicht angeschlossen)
+CH0 (Fx) -> Rauschen (StdDev): 115.8013 LSB/Volt
+CH1 (Fy) -> Rauschen (StdDev): 309.1016 LSB/Volt
+CH2 (Fz) -> Rauschen (StdDev): 1092.5132 LSB/Volt
+CH4 (Mx) -> Rauschen (StdDev): 401.2329 LSB/Volt
+CH5 (My) -> Rauschen (StdDev): 212.8374 LSB/Volt
+CH6 (Mz) -> Rauschen (StdDev):  88.6646 LSB/Volt
+
+
+2: unteres board (oberes angeschlossen, aber nicht mit messen)
+CH1 (Fy) -> Rauschen (StdDev): 330.7978 LSB/Volt
+CH2 (Fz) -> Rauschen (StdDev): 1059.4917 LSB/Volt
+CH4 (Mx) -> Rauschen (StdDev): 314.4730 LSB/Volt
+CH5 (My) -> Rauschen (StdDev): 217.4031 LSB/Volt
+CH6 (Mz) -> Rauschen (StdDev):  50.1025 LSB/Volt
+
+3: beide boards (nur unteres an signal)
+[BOARD LINKS]
+  CH0 (Fx1) -> Rauschen (StdDev):  92.0285 | CH4 (Mx1) -> Rauschen (StdDev): 236.2219
+  CH1 (Fy1) -> Rauschen (StdDev): 345.2817 | CH5 (My1) -> Rauschen (StdDev): 130.5491
+  CH2 (Fz1) -> Rauschen (StdDev): 1094.4620 | CH6 (Mz1) -> Rauschen (StdDev):  69.8379
+
+[BOARD RECHTS]
+  CH0 (Fx2) -> Rauschen (StdDev):  55.0826 | CH4 (Mx2) -> Rauschen (StdDev):  30.3020
+  CH1 (Fy2) -> Rauschen (StdDev):  44.3647 | CH5 (My2) -> Rauschen (StdDev):  31.9098
+  CH2 (Fz2) -> Rauschen (StdDev):  40.6161 | CH6 (Mz2) -> Rauschen (StdDev):  37.7606
+
+4: beide boards (beide an signal)
+  

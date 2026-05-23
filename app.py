@@ -1,5 +1,5 @@
 import sys
-from PyQt6 import QtWidgets, uic
+from PyQt6 import QtWidgets, uic, QtGui
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import QButtonGroup
 import pyqtgraph as pg
@@ -142,6 +142,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.pw_rechts_moment.setLabel('left', 'Moment', units='Nm', **label_style)
         self.pw_rechts_moment.setTitle("Rechte Hand - Moment", color="k", size="12pt")
 
+        # ### Monospace-Schriftart für tabellarische Textausrichtung erzwingen
+        # font = QtGui.QFont("Courier New", 9)
+        # self.tabelle_kraft.setFont(font)
+        # self.tabelle_moment.setFont(font)
 
         ### Die Buttons mit Funktionen verbinden
         self.btn_start_messung.clicked.connect(self.starte_messung)
@@ -215,12 +219,15 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
         # Automatisierter Auto-Zero Ablauf VOR Messungsstart
         if self.auto_zero_ja.isChecked():
-            self.status_auto_zero.setText("Automatischer Auto-Zero wird vor der messung ausgeführt")
-            self.status_auto_zero.setStyleSheet(style_grün)
+            self.status_az_frage.setText("Automatischer Auto-Zero wird vor der messung ausgeführt")
+            self.status_az_frage.setStyleSheet(style_grün)
             QtWidgets.QApplication.processEvents()
             self.trigger_hardware_auto_zero()
-            self.status_auto_zero.setStyleSheet(style_grün)
-            QTimer.singleShot(3000, lambda: self.reset_label(self.status_auto_zero))
+            QTimer.singleShot(3000, lambda: self.reset_label(self.status_az_frage))
+        else: 
+            self.status_az_frage.setText("Kein Auto-Zero vor der Messung")
+            self.status_az_frage.setStyleSheet(style_grau)
+            QTimer.singleShot(3000, lambda: self.reset_label(self.status_az_frage))
 
         #Variablen
         vorbereitung = 2000 #ms
@@ -236,6 +243,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_mess_start))
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_speichern))
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_auto_zero))
+        QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_az_frage))
 
 
         # Hebt den Frame über alle anderen Elemente
@@ -520,7 +528,99 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             for pw in [self.pw_links_kraft, self.pw_rechts_kraft, self.pw_links_moment, self.pw_rechts_moment]:
                 pw.autoRange()
             
-            # hier würden dann noch die parameter kommen.
+            ######### Parameter für die Tabellen #########
+            ### --- KRAFT-TABELLE BEFÜLLEN ---
+            # Links Kraft
+            l_fx_max, l_fx_min = np.max(processed_data[:, 1]), np.min(processed_data[:, 1])
+            l_fy_max, l_fy_min = np.max(processed_data[:, 2]), np.min(processed_data[:, 2])
+            l_fz_max = np.max(processed_data[:, 3])
+
+            self.tabelle_kraft.setItem(1, 0, QtWidgets.QTableWidgetItem(f"Max.: {l_fx_max:.1f}     Min.: {l_fx_min:.1f}"))
+            self.tabelle_kraft.setItem(1, 1, QtWidgets.QTableWidgetItem(f"Max.: {l_fy_max:.1f}     Min.: {l_fy_min:.1f}"))
+            self.tabelle_kraft.setItem(1, 2, QtWidgets.QTableWidgetItem(f"Max.: {l_fz_max:.1f}"))
+
+            # Rechts Kraft
+            r_fx_max, r_fx_min = np.max(processed_data[:, 7]), np.min(processed_data[:, 7])
+            r_fy_max, r_fy_min = np.max(processed_data[:, 8]), np.min(processed_data[:, 8])
+            r_fz_max = np.max(processed_data[:, 9])
+
+            self.tabelle_kraft.setItem(2, 0, QtWidgets.QTableWidgetItem(f"Max.: {r_fx_max:.1f}     Min.: {r_fx_min:.1f}"))
+            self.tabelle_kraft.setItem(2, 1, QtWidgets.QTableWidgetItem(f"Max.: {r_fy_max:.1f}     Min.: {r_fy_min:.1f}"))
+            self.tabelle_kraft.setItem(2, 2, QtWidgets.QTableWidgetItem(f"Max.: {r_fz_max:.1f}"))
+
+            ### --- MOMENTEN-TABELLE BEFÜLLEN ---
+            # Links Momente
+            l_mx_max, l_mx_min = np.max(processed_data[:, 4]), np.min(processed_data[:, 4])
+            l_my_max, l_my_min = np.max(processed_data[:, 5]), np.min(processed_data[:, 5])
+            l_mz_max, l_mz_min = np.max(processed_data[:, 6]), np.min(processed_data[:, 6])
+
+            self.tabelle_moment.setItem(1, 0, QtWidgets.QTableWidgetItem(f"Max.: {l_mx_max:.1f}     Min.: {l_mx_min:.1f}"))
+            self.tabelle_moment.setItem(1, 1, QtWidgets.QTableWidgetItem(f"Max.: {l_my_max:.1f}     Min.: {l_my_min:.1f}"))
+            self.tabelle_moment.setItem(1, 2, QtWidgets.QTableWidgetItem(f"Max.: {l_mz_max:.1f}     Min.: {l_mz_min:.1f}"))
+
+            # Rechts Momente
+            r_mx_max, r_mx_min = np.max(processed_data[:, 10]), np.min(processed_data[:, 10])
+            r_my_max, r_my_min = np.max(processed_data[:, 11]), np.min(processed_data[:, 11])
+            r_mz_max, r_mz_min = np.max(processed_data[:, 12]), np.min(processed_data[:, 12])
+
+            self.tabelle_moment.setItem(2, 0, QtWidgets.QTableWidgetItem(f"Max.: {r_mx_max:.1f}     Min.: {r_mx_min:.1f}"))
+            self.tabelle_moment.setItem(2, 1, QtWidgets.QTableWidgetItem(f"Max.: {r_my_max:.1f}     Min.: {r_my_min:.1f}"))
+            self.tabelle_moment.setItem(2, 2, QtWidgets.QTableWidgetItem(f"Max.: {r_mz_max:.1f}     Min.: {r_mz_min:.1f}"))
+
+            ### Reaktionzeiten
+            # --- REAKTIONSZEIT-BERECHNUNG (Schwelle: Fz > 15N) ---
+            zeit_vektor = processed_data[:, 0]
+            l_fz = processed_data[:, 3]  # Index 3 = L_Fz
+            r_fz = processed_data[:, 9]  # Index 9 = R_Fz
+
+            # Indizes finden, wo Fz > 15 N ist
+            idx_links = np.where(l_fz > 15.0)[0]
+            idx_rechts = np.where(r_fz > 15.0)[0]
+
+            # Reaktionszeit Links bestimmen
+            if len(idx_links) > 0:
+                reaktion_links = zeit_vektor[idx_links[0]]
+                text_links = f"{reaktion_links:.3f} s"
+            else:
+                reaktion_links = None
+                text_links = "Kein Wert"
+
+            # Reaktionszeit Rechts bestimmen
+            if len(idx_rechts) > 0:
+                reaktion_rechts = zeit_vektor[idx_rechts[0]]
+                text_rechts = f"{reaktion_rechts:.3f} s"
+            else:
+                reaktion_rechts = None
+                text_rechts = "Kein Wert"
+
+            # --- TABELLE: tabelle_reaktion_li_re BEFÜLLEN ---
+            # Zeile 0: Linke Hand, Spalte 0: Reaktionszeit
+            self.tabelle_reaktion_li_re.setItem(0, 0, QtWidgets.QTableWidgetItem(text_links))
+            # Zeile 1: Rechte Hand, Spalte 0: Reaktionszeit
+            self.tabelle_reaktion_li_re.setItem(1, 0, QtWidgets.QTableWidgetItem(text_rechts))
+
+            # --- DURCHSCHNITT UND DIFFERENZ BERECHNEN ---
+            if reaktion_links is not None and reaktion_rechts is not None:
+                durchschnitt = (reaktion_links + reaktion_rechts) / 2.0
+                differenz = abs(reaktion_links - reaktion_rechts)
+                text_durchschnitt = f"{durchschnitt:.3f} s"
+                text_differenz = f"{differenz:.3f} s"
+            else:
+                text_durchschnitt = "N/A"
+                text_differenz = "N/A"
+
+            # --- TABELLE: tabelle_reaktion_durchschnitt BEFÜLLEN ---
+            # Zeile 0: Durchschnitt, Spalte 0: Reaktionszeit
+            self.tabelle_reaktion_durchschnitt.setItem(0, 0, QtWidgets.QTableWidgetItem(text_durchschnitt))
+            # Zeile 1: Differenz (Unterschied), Spalte 0: Reaktionszeit
+            self.tabelle_reaktion_durchschnitt.setItem(1, 0, QtWidgets.QTableWidgetItem(text_differenz))
+
+            # --- TABELLE: tabelle_reaktion_durchschnitt BEFÜLLEN ---
+            # Spalte 0 ist die Spalte für die "Reaktionszeit"
+            # Zeile 1: Durchschnitt
+            self.tabelle_reaktion_durchschnitt.setItem(1, 0, QtWidgets.QTableWidgetItem(text_durchschnitt))
+            # Zeile 2: Differenz (Unterschied)
+            self.tabelle_reaktion_durchschnitt.setItem(2, 0, QtWidgets.QTableWidgetItem(text_differenz))
 
 
             # UI für Änderungen sperren, bis "Neue Messung" gedrückt wird
@@ -585,6 +685,18 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         for pw in self.all_plots:
             pw.clear()
         
+        # Tabellen-Inhalte leeren (ohne die Header zu löschen)
+        tabellen_liste = [
+            self.tabelle_kraft, 
+            self.tabelle_moment, 
+            self.tabelle_reaktion_li_re, 
+            self.tabelle_reaktion_durchschnitt
+        ]
+        for tabelle in tabellen_liste:
+            for row in [1, 2]:
+                for col in [0, 1, 2]:
+                    tabelle.setItem(row, col, QtWidgets.QTableWidgetItem(""))
+        
         # QTimer.singleShot(4000, lambda: self.reset_label(self.status_neue_mess))
     
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
@@ -648,8 +760,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.close()
     def closeEvent(self, event):
         """Bereinigt die GPIOs beim regulären Schließen des Fensters"""
-        if GPIO_AVAILABLE:
-            GPIO.cleanup()
+        GPIO.cleanup()
         event.accept()
 
 # Standard-Startblock für PyQt6

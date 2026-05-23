@@ -39,7 +39,7 @@ gelb = Fx = CH2H = maske (0x04)
 6: 1 kanal pro board, immer 1 samples auf einmal reinschreiben
 
 
-## messungen mit GUI (rechte hand aktiv)
+####### messungen mit GUI (rechte hand aktiv) ##############
 
 #test
 mein gewicht: 86.3 kg
@@ -51,3 +51,10 @@ test 10 nichts drauf --> grundrauschen der platte
 nr1 dirket 20 kg drauf
 nr2 counter movement mit schon drauf stehen
 nr3 komplett leer
+
+#athlet 2
+nr1 noch mit raushen
+nr2 anscheinende ohne rauschen von Fx
+nr3 rechts cmj links nichts (rauschen rübergesprungen)
+nr4 baseline mit mir am ende auf rechter platte
+nr5 rechts ich springen, links nicht angeschlossen aber mit gemessen
