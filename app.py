@@ -1,5 +1,5 @@
 import sys
-from PyQt6 import QtWidgets, uic, QtGui
+from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import QButtonGroup
 import pyqtgraph as pg
@@ -9,6 +9,7 @@ import time
 from daqhats import hat_list, HatIDs, mcc128, AnalogInputRange, AnalogInputMode, OptionFlags
 import pygame
 import RPi.GPIO as GPIO
+from scipy.signal import butter, sosfiltfilt
 
 # from daten import probe_funktion
 # from main import measurement
@@ -70,7 +71,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.init_gpio()
 
         ### channels für messung festlegen
-        self.num_channels = 6  # Anzahl der Kanäle pro Board, die gemessen werden sollen
+        self.num_channels = 6  # Anzahl der Kanäle pro Board, die gemessen werden sollen, ist fix
 
         ### group boxes für die radiobuttons
         # Gruppe 1: Speichern Ja/Nein
@@ -216,8 +217,8 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         else:
             self.aktueller_dateiname = None
             self.soll_speichern = False
-            self.speicherstatus = "Messung wird nicht gespeichert (nur Anzeige)."
-            print("Messung wird nicht gespeichert (nur Anzeige).")
+            self.speicherstatus = "Messung wird nicht gespeichert (nur Angezeigt)."
+            print("Messung wird nicht gespeichert (nur Angezeigt).")
             self.status_speichern.setStyleSheet(style_grau)
 
         # Automatisierter Auto-Zero Ablauf VOR Messungsstart
@@ -226,11 +227,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.status_az_frage.setStyleSheet(style_grün)
             QtWidgets.QApplication.processEvents()
             self.trigger_hardware_auto_zero()
-            QTimer.singleShot(3000, lambda: self.reset_label(self.status_az_frage))
         else: 
             self.status_az_frage.setText("Kein Auto-Zero vor der Messung")
             self.status_az_frage.setStyleSheet(style_grau)
-            QTimer.singleShot(3000, lambda: self.reset_label(self.status_az_frage))
 
         #Variablen
         vorbereitung = 2000 #ms
@@ -319,8 +318,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def measurement(self, hat_links, hat_rechts, duration_sec, num_channels = 6, sampling_rate = 1000.0):
         # sampling_rate = 1000.0
-        # num_channels = 3
-        channel_mask = (0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF)     # Maske für alle acht Kanäle (immer von channel 0 bis channel num_channels - 1)
+        # num_channels = 6
+        # channel_mask = (0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF)     # Maske für alle acht Kanäle (immer von channel 0 bis channel num_channels - 1)
+        # 0x77 maske für 0,1,2  4,5,6        
         total_frames = int(round(duration_sec * sampling_rate))             # round um kleine latenzen aus der GUI auszugleichen
         frames_written = 0
         # Wir speichern als float64 
@@ -329,15 +329,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
         print(f"Messung wird gestartet: {num_channels} Kanäle bei zwei Boards und {duration_sec}s...")
 
-
-        # hat_links.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0, 
-        #                     sample_rate_per_channel=sampling_rate, 
-        #                     options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
-
-        # hat_rechts.a_in_scan_start(channel_mask = channel_mask[num_channels-1], samples_per_channel=0,
-        #                     sample_rate_per_channel=sampling_rate, 
-        #                     options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock (von Board 0) synchronisiert beide Boards
-        # #samples_per_channel=0 bedeutet hier: Messe unendlich lange weiter, bis ich "Stopp" sage.
 
         hat_links.a_in_scan_start(channel_mask = 0x77,
                             samples_per_channel=0, 
@@ -348,7 +339,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                             samples_per_channel=0,
                             sample_rate_per_channel=sampling_rate, 
                             options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock
-        # 0x77 maske für 0,1,2  4,5,6
+
 
         samples_per_block = 100
         frames_written = 0
@@ -410,39 +401,82 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def speichern_csv(self, dateiname, data_phys, frames_written):
         """
-        Speichert das bereits verarbeitete (kalibrierte) Array als CSV.
+        Speichert das verarbeitete (kalibrierte) Array als CSV mit einem 
+        dreizeiligen Metadaten-Header (Parameter, Werte, Spaltennamen).
         """
         print(f"Speichere {frames_written} Zeilen in {dateiname}...")
 
-        # Header-Liste für die 13 Spalten
+        # =========================================================================
+        # 1. METADATEN DYNAMISCH AUS DER GUI/KLASSE HOLEN
+        # =========================================================================
+        # Falls deine Variablen anders heißen, hier die Namen kurz anpassen:
+        messart = self.box_art.currentText() if hasattr(self, 'box_art') else "Unbekannt"
+        versuchsnummer = self.box_ver_nr.currentText() if hasattr(self, 'box_ver_nr') else "Unbekannt"
+        dauer = self.par_dauer.value() if hasattr(self, 'par_dauer') else "Unbekannt"
+        sampling_frequenz = self.par_frequenz.value() if hasattr(self, 'par_frequenz') else "Unbekannt"
+
+        
+        # Trigger-Art über die RadioButtons ermitteln (.isChecked())
+        if self.visuell.isChecked():
+            trigger_art = "Visueller Reiz"
+        elif self.akustisch.isChecked():
+            trigger_art = "Akustischer Reiz"
+        else:
+            trigger_art = "Unbekannt"
+
+        # Überprüfen ob automatischer Auto-Zero vor der Messung gewählt wurde
+        if self.auto_zero_ja.isChecked():
+            auto_zero_status = "Ja"
+        elif self.auto_zero_nein.isChecked():
+            auto_zero_status = "Nein"
+        else:
+            auto_zero_status = "Unbekannt"
+        # =========================================================================
+        # 2. DREIZEILIGEN HEADER BAUEN
+        # =========================================================================
+        # Zeile 1: Die Bezeichnungen der Metadaten-Spalten
+        meta_names = "Messart,Versuchsnummer,Dauer,Sampling-Frequenz,Trigger-Art,Auto-Zero vor Messung"
+        
+        # Zeile 2: Die echten Werte (durch Komma getrennt)
+        meta_values = f"{messart},{versuchsnummer},{dauer},{sampling_frequenz},{trigger_art},{auto_zero_status}"
+        
+        # Zeile 3: Die Spaltennamen für deine 13 Daten-Kanäle
         header_list = [
             "Time", 
             "L_Fx", "L_Fy", "L_Fz", "L_Mx", "L_My", "L_Mz",
             "R_Fx", "R_Fy", "R_Fz", "R_Mx", "R_My", "R_Mz"
         ]
+        data_columns = ",".join(header_list)
 
-        # Formatierung anpassen
-        # '%.4f' für die Zeit
-        # '%.2f' für die Kraft/Momente (2 Nachkommastellen reichen meistens aus)
-        fmt = ['%.4f'] + ['%.2f'] * (2 * self.num_channels)
+        # Zusammenfügen der drei Zeilen (getrennt durch Zeilenumbrüche \n)
+        # NumPy setzt standardmäßig ein '#' vor den Header. Mit comments='' unterdrücken wir das,
+        # damit die Datei sofort rein als CSV gelesen werden kann.
+        kompletter_header = f"{meta_names}\n{meta_values}\n{data_columns}"
+
+        # =========================================================================
+        # 3. FORMATIERUNG UND SPEICHERN
+        # =========================================================================
+        # '%.4f' für die Zeit, '%.2f' für alle nachfolgenden Kräfte und Momente
+        fmt = ['%.4f'] + ['%.2f'] * (data_phys.shape[1] - 1)
         
         try:
-            # Wir nutzen nur die tatsächlich geschriebenen Frames
+            # Wir speichern nur die tatsächlich geschriebenen Zeilen (frames_written)
             np.savetxt(
                 dateiname, 
                 data_phys[:frames_written, :], 
                 delimiter=",", 
-                header=",".join(header_list), 
+                header=kompletter_header, 
                 comments='', 
                 fmt=fmt
             )
-            print("CSV-Datei erfolgreich gespeichert!")
+            print("CSV-Datei inklusive strukturiertem Metadaten-Header erfolgreich gespeichert!")
         except Exception as e:
-            print(f"Fehler beim Speichern: {e}")
+            print(f"Fehler beim Speichern der CSV: {e}")
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def werte_verarbeiten(self, all_data):
         """
-        Verarbeitet Roh-ADC-Werte in physikalische Einheiten (N und Nm).
+        Verarbeitet Roh-ADC-Werte in physikalische Einheiten (N und Nm)
+        und filtert die mechanischen Eigenfrequenzen der KMP heraus.
         all_data Aufbau:
         [0]: Zeit
         [1-3]: Fx, Fy, Fz (Board 1 - Links)
@@ -450,7 +484,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         [7-9]: Fx, Fy, Fz (Board 2 - Rechts)
         [10-12]: Mx, My, Mz (Board 2 - Rechts)
         """
-        # 1. Kopie erstellen (float64)
+        # 1. Kopie erstellen
         data_phys = np.copy(all_data).astype(np.float64)
         
         # 2. Baseline-Korrektur (Tara)
@@ -463,9 +497,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # 3. Definition der Skalierungsfaktoren (MaxLoad / 32768)
         f_fx_fy = 5000.0 / 32768.0      # Fx und Fy haben den faktor 5000 N bei voller Auslenkung
         f_fz    = 10000.0 / 32768.0     # Fz hat den faktor 10000 N bei voller Auslenkung
-        f_mx    = 1500.0 / 32768.0      # Mx hat den faktor 1500 Nm bei voller Auslenkung
-        f_my    = 1000.0 / 32768.0      # My hat den faktor 1000 Nm bei voller Auslenkung
-        f_mz    = 750.0 / 32768.0       # Mz hat den faktor 750 Nm bei voller Auslenkung
+        f_mx    = 3000.0 / 32768.0      # Mx hat den faktor 3000 Nm bei voller Auslenkung
+        f_my    = 2000.0 / 32768.0      # My hat den faktor 2000 Nm bei voller Auslenkung
+        f_mz    = 1500.0 / 32768.0       # Mz hat den faktor 1500 Nm bei voller Auslenkung
 
         # für alle daten einmal die Mitte des Messbereiches vom ADC rohwert abziehen
         # Formel: Kraft (N) = (ADC_Rohwert - 32768) * (Maximalbereich(N) / 32768)
@@ -486,6 +520,25 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         data_phys[:, 11] *= f_my    # CH4: My
         data_phys[:, 12] *= f_mz    # CH5: Mz
 
+        # =========================================================================
+        # 6. DIGITALER TIEFPASSFILTER (BUTTERWORTH 4. ORDNUNG)
+        # =========================================================================
+        fs = 1000.0       # Deine Abtastrate (1000 Hz laut Systemauslegung)
+        fc = 90.0         # Grenzfrequenz (90 Hz: idealer Kompromiss unterhalb der 110 Hz Eigenfrequenz)
+        order = 4         # Filterordnung für eine steile Trennung
+
+        # Überprüfen, ob das Array genügend Zeilen/Datenpunkte zum Filtern besitzt
+        # (sosfiltfilt benötigt eine minimale Mindestanzahl an Samples)
+        if data_phys.shape[0] > 30:
+            # Filterkoeffizienten als Second-Order Sections (SOS) berechnen (sehr stabil)
+            sos = butter(order, fc, btype='low', fs=fs, output='sos')
+            
+            # Filter auf alle Signalspalten (Index 1 bis 12) anwenden
+            # Spalte 0 ist der Zeitvektor und darf NIEMALS gefiltert werden!
+            for col in range(1, 13):
+                # sosfiltfilt filtert vorwärts + rückwärts -> Verhindert Phasenverschiebung!
+                data_phys[:, col] = sosfiltfilt(sos, data_phys[:, col])
+
         return data_phys
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
@@ -499,8 +552,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             # --- TRIGGERART IM LABEL ANZEIGEN ---
             if self.visuell.isChecked():
                 self.par_bedingung.setText("Visueller Reiz")
+                self.par_bedingung.setStyleSheet(style_grün)
             else:
                 self.par_bedingung.setText("Akustischer Reiz")
+                self.par_bedingung.setStyleSheet(style_grün)
 
             # 1. Visuelles Feedback zurücksetzen
             self.signal_frame.setStyleSheet("background-color: transparent;")
@@ -618,7 +673,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             # --- TABELLE: tabelle_reaktion_li_re BEFÜLLEN ---
             # Tabelle hat 1 Zeile (Index 0) und 2 Spalten: Spalte 0 = Links, Spalte 1 = Rechts
             self.tabelle_reaktion_li_re.setItem(0, 0, QtWidgets.QTableWidgetItem(text_links))
-            self.tabelle_reaktion_li_re.setItem(0, 1, QtWidgets.QTableWidgetItem(text_rechts))
+            self.tabelle_reaktion_li_re.setItem(1, 0, QtWidgets.QTableWidgetItem(text_rechts))
 
             # --- DURCHSCHNITT UND DIFFERENZ BERECHNEN ---
             if reaktion_links is not None and reaktion_rechts is not None:

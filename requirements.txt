@@ -5,3 +5,4 @@ pandas
 pygame
 pyqtgraph
 PyQt6
+scipy

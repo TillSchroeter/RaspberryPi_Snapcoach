@@ -175,7 +175,7 @@ QTableWidget::item:selected {
        </font>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="Steuerung">
        <property name="font">
@@ -1024,7 +1024,7 @@ font-weight: bold; /* Wenn es fett gedruckt sein soll */</string>
 </string>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="Kraft">
          <attribute name="title">
@@ -1362,89 +1362,6 @@ font-weight: bold; /* Wenn es fett gedruckt sein soll */</string>
            <string>Reaktionszeiten</string>
           </property>
          </widget>
-         <widget class="QTableWidget" name="tabelle_reaktion_li_re">
-          <property name="geometry">
-           <rect>
-            <x>20</x>
-            <y>150</y>
-            <width>351</width>
-            <height>101</height>
-           </rect>
-          </property>
-          <property name="editTriggers">
-           <set>QAbstractItemView::NoEditTriggers</set>
-          </property>
-          <property name="selectionMode">
-           <enum>QAbstractItemView::NoSelection</enum>
-          </property>
-          <attribute name="horizontalHeaderDefaultSectionSize">
-           <number>120</number>
-          </attribute>
-          <attribute name="horizontalHeaderHighlightSections">
-           <bool>true</bool>
-          </attribute>
-          <attribute name="horizontalHeaderStretchLastSection">
-           <bool>false</bool>
-          </attribute>
-          <attribute name="verticalHeaderStretchLastSection">
-           <bool>true</bool>
-          </attribute>
-          <row>
-           <property name="text">
-            <string>Reaktionszeit</string>
-           </property>
-          </row>
-          <column>
-           <property name="text">
-            <string>linke Hand</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>rechte Hand</string>
-           </property>
-          </column>
-         </widget>
-         <widget class="QTableWidget" name="tabelle_reaktion_durchschnitt">
-          <property name="geometry">
-           <rect>
-            <x>430</x>
-            <y>150</y>
-            <width>311</width>
-            <height>101</height>
-           </rect>
-          </property>
-          <property name="editTriggers">
-           <set>QAbstractItemView::NoEditTriggers</set>
-          </property>
-          <property name="selectionMode">
-           <enum>QAbstractItemView::NoSelection</enum>
-          </property>
-          <attribute name="horizontalHeaderDefaultSectionSize">
-           <number>120</number>
-          </attribute>
-          <attribute name="horizontalHeaderStretchLastSection">
-           <bool>false</bool>
-          </attribute>
-          <attribute name="verticalHeaderStretchLastSection">
-           <bool>true</bool>
-          </attribute>
-          <row>
-           <property name="text">
-            <string>Durchschnitt von  li. und re. </string>
-           </property>
-          </row>
-          <row>
-           <property name="text">
-            <string>Unterschied von li. und re.</string>
-           </property>
-          </row>
-          <column>
-           <property name="text">
-            <string>Wert</string>
-           </property>
-          </column>
-         </widget>
          <widget class="QLabel" name="label_bedingung">
           <property name="geometry">
            <rect>
@@ -1491,6 +1408,98 @@ color: #000000; /* Ein dunkles Grau/Schwarz für die Lesbarkeit */
            <string/>
           </property>
          </widget>
+         <widget class="QTableWidget" name="tabelle_reaktion_li_re">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>140</y>
+            <width>251</width>
+            <height>111</height>
+           </rect>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::NoSelection</enum>
+          </property>
+          <attribute name="horizontalHeaderDefaultSectionSize">
+           <number>150</number>
+          </attribute>
+          <attribute name="horizontalHeaderStretchLastSection">
+           <bool>false</bool>
+          </attribute>
+          <attribute name="verticalHeaderStretchLastSection">
+           <bool>true</bool>
+          </attribute>
+          <row>
+           <property name="text">
+            <string>linke Hand</string>
+           </property>
+          </row>
+          <row>
+           <property name="text">
+            <string>rechte Hand</string>
+           </property>
+          </row>
+          <column>
+           <property name="text">
+            <string>Movement Time (s)</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+         </widget>
+         <widget class="QTableWidget" name="tabelle_reaktion_durchschnitt">
+          <property name="geometry">
+           <rect>
+            <x>330</x>
+            <y>140</y>
+            <width>351</width>
+            <height>111</height>
+           </rect>
+          </property>
+          <property name="editTriggers">
+           <set>QAbstractItemView::NoEditTriggers</set>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::NoSelection</enum>
+          </property>
+          <attribute name="horizontalHeaderDefaultSectionSize">
+           <number>150</number>
+          </attribute>
+          <attribute name="horizontalHeaderStretchLastSection">
+           <bool>false</bool>
+          </attribute>
+          <attribute name="verticalHeaderStretchLastSection">
+           <bool>true</bool>
+          </attribute>
+          <row>
+           <property name="text">
+            <string>Durchschnitt von  li. und re. </string>
+           </property>
+          </row>
+          <row>
+           <property name="text">
+            <string>Unterschied von li. und re.</string>
+           </property>
+          </row>
+          <column>
+           <property name="text">
+            <string>Wert (s)</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+         </widget>
         </widget>
        </widget>
       </widget>
@@ -1504,7 +1513,7 @@ color: #000000; /* Ein dunkles Grau/Schwarz für die Lesbarkeit */
      <x>0</x>
      <y>0</y>
      <width>1280</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>
