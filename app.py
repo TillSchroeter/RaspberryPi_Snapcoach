@@ -431,14 +431,22 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             auto_zero_status = "Nein"
         else:
             auto_zero_status = "Unbekannt"
+        
+        # Movement Times exrahieren
+        reaktion_links, _, reaktion_rechts, _ = self.calc_Movement_Time(data_phys[:frames_written, :])
+
+        # Floats sauber für die CSV formatieren. Falls kein Wert vorhanden ist, schreiben wir NaN (Not a Number)
+        val_links = f"{reaktion_links:.3f}" if reaktion_links is not None else "NaN"
+        val_rechts = f"{reaktion_rechts:.3f}" if reaktion_rechts is not None else "NaN"
+
         # =========================================================================
         # 2. DREIZEILIGEN HEADER BAUEN
         # =========================================================================
         # Zeile 1: Die Bezeichnungen der Metadaten-Spalten
-        meta_names = "Messart,Versuchsnummer,Dauer,Sampling-Frequenz,Trigger-Art,Auto-Zero vor Messung"
+        meta_names = "Messart,Versuchsnummer,Dauer,Sampling-Frequenz,Trigger-Art,Auto-Zero vor Messung,Movement Time Links(s),Movement Time Rechts(s)"
         
         # Zeile 2: Die echten Werte (durch Komma getrennt)
-        meta_values = f"{messart},{versuchsnummer},{dauer},{sampling_frequenz},{trigger_art},{auto_zero_status}"
+        meta_values = f"{messart},{versuchsnummer},{dauer},{sampling_frequenz},{trigger_art},{auto_zero_status},{val_links},{val_rechts}"
         
         # Zeile 3: Die Spaltennamen für deine 13 Daten-Kanäle
         header_list = [
@@ -487,14 +495,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # 1. Kopie erstellen
         data_phys = np.copy(all_data).astype(np.float64)
         
-        # 2. Baseline-Korrektur (Tara)
-        # Wir berechnen den Nullpunkt-Offset aus den ersten 10 Zeilen der Messung
-        # (Voraussetzung: Proband übt zu Beginn noch keine Kraft aus)
-        # offset = np.mean(data_phys[:10, 1:], axis=0)
-        # data_phys[:, 1:] -= offset
-        
-
-        # 3. Definition der Skalierungsfaktoren (MaxLoad / 32768)
+        # 2. Definition der Skalierungsfaktoren (MaxLoad / 32768)
         f_fx_fy = 5000.0 / 32768.0      # Fx und Fy haben den faktor 5000 N bei voller Auslenkung
         f_fz    = 10000.0 / 32768.0     # Fz hat den faktor 10000 N bei voller Auslenkung
         f_mx    = 3000.0 / 32768.0      # Mx hat den faktor 3000 Nm bei voller Auslenkung
@@ -504,7 +505,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # für alle daten einmal die Mitte des Messbereiches vom ADC rohwert abziehen
         # Formel: Kraft (N) = (ADC_Rohwert - 32768) * (Maximalbereich(N) / 32768)
         data_phys[:, 1:] -= 32768.0
-        # 4. Faktoren auf Board 1 (Links) anwenden
+        # 3. Faktoren auf Board 1 (Links) anwenden
         data_phys[:, 1] *= f_fx_fy  # CH0: Fx
         data_phys[:, 2] *= f_fx_fy  # CH1: Fy
         data_phys[:, 3] *= f_fz     # CH2: Fz
@@ -512,7 +513,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         data_phys[:, 5] *= f_my     # CH4: My
         data_phys[:, 6] *= f_mz     # CH5: Mz
 
-        # 5. Faktoren auf Board 2 (Rechts) anwenden
+        # 4. Faktoren auf Board 2 (Rechts) anwenden
         data_phys[:, 7] *= f_fx_fy  # CH0: Fx
         data_phys[:, 8] *= f_fx_fy  # CH1: Fy
         data_phys[:, 9] *= f_fz     # CH2: Fz
@@ -520,6 +521,15 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         data_phys[:, 11] *= f_my    # CH4: My
         data_phys[:, 12] *= f_mz    # CH5: Mz
 
+        # =========================================================================
+        # 5. SOFTWARE-TARIERUNG (AUTO-ZERO) - Erst NACH der physikalischen Skalierung!
+        # =========================================================================
+        # Wird nur ausgeführt, wenn genügend Daten da sind und der Haken in der GUI gesetzt ist
+        if self.auto_zero_ja.isChecked() and data_phys.shape[0] >= 10:
+            # Wir berechnen den Nullpunkt-Offset (in N bzw. Nm) aus den ersten 10 Zeilen der Messung
+            offset = np.mean(data_phys[:10, 1:], axis=0) 
+            data_phys[:, 1:] -= offset
+        
         # =========================================================================
         # 6. DIGITALER TIEFPASSFILTER (BUTTERWORTH 4. ORDNUNG)
         # =========================================================================
@@ -542,7 +552,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         return data_phys
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
-    def messung_beenden(self, processed_data):
+    def messung_beenden(self, data_phys):
             """
             processed_data Aufbau:
             [0]: Zeit
@@ -571,7 +581,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.pw_links_moment.clear()
             self.pw_rechts_moment.clear()
 
-            zeit = processed_data[:, 0]
+            zeit = data_phys[:, 0]
 
             # --- MATPLOTLIB FARBEN & STIL ---
             # Breite 2.0 ist deutlich besser sichtbar auf dem 7" Screen
@@ -581,25 +591,25 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
             # --- LINKS PLOTTEN ---
             # Kraft
-            self.pw_links_kraft.plot(zeit, processed_data[:, 1], pen=pen_x, name="Fx")
-            self.pw_links_kraft.plot(zeit, processed_data[:, 2], pen=pen_y, name="Fy")
-            self.pw_links_kraft.plot(zeit, processed_data[:, 3], pen=pen_z, name="Fz")
+            self.pw_links_kraft.plot(zeit, data_phys[:, 1], pen=pen_x, name="Fx")
+            self.pw_links_kraft.plot(zeit, data_phys[:, 2], pen=pen_y, name="Fy")
+            self.pw_links_kraft.plot(zeit, data_phys[:, 3], pen=pen_z, name="Fz")
             
             # Momente
-            self.pw_links_moment.plot(zeit, processed_data[:, 4], pen=pen_x, name="Mx")
-            self.pw_links_moment.plot(zeit, processed_data[:, 5], pen=pen_y, name="My")
-            self.pw_links_moment.plot(zeit, processed_data[:, 6], pen=pen_z, name="Mz")
+            self.pw_links_moment.plot(zeit, data_phys[:, 4], pen=pen_x, name="Mx")
+            self.pw_links_moment.plot(zeit, data_phys[:, 5], pen=pen_y, name="My")
+            self.pw_links_moment.plot(zeit, data_phys[:, 6], pen=pen_z, name="Mz")
 
             # --- RECHTS PLOTTEN ---
             # Kraft
-            self.pw_rechts_kraft.plot(zeit, processed_data[:, 7], pen=pen_x, name="Fx")
-            self.pw_rechts_kraft.plot(zeit, processed_data[:, 8], pen=pen_y, name="Fy")
-            self.pw_rechts_kraft.plot(zeit, processed_data[:, 9], pen=pen_z, name="Fz")
+            self.pw_rechts_kraft.plot(zeit, data_phys[:, 7], pen=pen_x, name="Fx")
+            self.pw_rechts_kraft.plot(zeit, data_phys[:, 8], pen=pen_y, name="Fy")
+            self.pw_rechts_kraft.plot(zeit, data_phys[:, 9], pen=pen_z, name="Fz")
             
             # Momente
-            self.pw_rechts_moment.plot(zeit, processed_data[:, 10], pen=pen_x, name="Mx")
-            self.pw_rechts_moment.plot(zeit, processed_data[:, 11], pen=pen_y, name="My")
-            self.pw_rechts_moment.plot(zeit, processed_data[:, 12], pen=pen_z, name="Mz")
+            self.pw_rechts_moment.plot(zeit, data_phys[:, 10], pen=pen_x, name="Mx")
+            self.pw_rechts_moment.plot(zeit, data_phys[:, 11], pen=pen_y, name="My")
+            self.pw_rechts_moment.plot(zeit, data_phys[:, 12], pen=pen_z, name="Mz")
 
             # 3. Zoom anpassen
             for pw in [self.pw_links_kraft, self.pw_rechts_kraft, self.pw_links_moment, self.pw_rechts_moment]:
@@ -608,18 +618,18 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             ######### Parameter für die Tabellen #########
             ### --- KRAFT-TABELLE BEFÜLLEN ---
             # Links Kraft
-            l_fx_max, l_fx_min = np.max(processed_data[:, 1]), np.min(processed_data[:, 1])
-            l_fy_max, l_fy_min = np.max(processed_data[:, 2]), np.min(processed_data[:, 2])
-            l_fz_max = np.max(processed_data[:, 3])
+            l_fx_max, l_fx_min = np.max(data_phys[:, 1]), np.min(data_phys[:, 1])
+            l_fy_max, l_fy_min = np.max(data_phys[:, 2]), np.min(data_phys[:, 2])
+            l_fz_max = np.max(data_phys[:, 3])
 
             self.tabelle_kraft.setItem(1, 0, QtWidgets.QTableWidgetItem(f"Max.: {l_fx_max:.1f}     Min.: {l_fx_min:.1f}"))
             self.tabelle_kraft.setItem(1, 1, QtWidgets.QTableWidgetItem(f"Max.: {l_fy_max:.1f}     Min.: {l_fy_min:.1f}"))
             self.tabelle_kraft.setItem(1, 2, QtWidgets.QTableWidgetItem(f"Max.: {l_fz_max:.1f}"))
 
             # Rechts Kraft
-            r_fx_max, r_fx_min = np.max(processed_data[:, 7]), np.min(processed_data[:, 7])
-            r_fy_max, r_fy_min = np.max(processed_data[:, 8]), np.min(processed_data[:, 8])
-            r_fz_max = np.max(processed_data[:, 9])
+            r_fx_max, r_fx_min = np.max(data_phys[:, 7]), np.min(data_phys[:, 7])
+            r_fy_max, r_fy_min = np.max(data_phys[:, 8]), np.min(data_phys[:, 8])
+            r_fz_max = np.max(data_phys[:, 9])
 
             self.tabelle_kraft.setItem(2, 0, QtWidgets.QTableWidgetItem(f"Max.: {r_fx_max:.1f}     Min.: {r_fx_min:.1f}"))
             self.tabelle_kraft.setItem(2, 1, QtWidgets.QTableWidgetItem(f"Max.: {r_fy_max:.1f}     Min.: {r_fy_min:.1f}"))
@@ -627,48 +637,50 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
             ### --- MOMENTEN-TABELLE BEFÜLLEN ---
             # Links Momente
-            l_mx_max, l_mx_min = np.max(processed_data[:, 4]), np.min(processed_data[:, 4])
-            l_my_max, l_my_min = np.max(processed_data[:, 5]), np.min(processed_data[:, 5])
-            l_mz_max, l_mz_min = np.max(processed_data[:, 6]), np.min(processed_data[:, 6])
+            l_mx_max, l_mx_min = np.max(data_phys[:, 4]), np.min(data_phys[:, 4])
+            l_my_max, l_my_min = np.max(data_phys[:, 5]), np.min(data_phys[:, 5])
+            l_mz_max, l_mz_min = np.max(data_phys[:, 6]), np.min(data_phys[:, 6])
 
             self.tabelle_moment.setItem(1, 0, QtWidgets.QTableWidgetItem(f"Max.: {l_mx_max:.1f}     Min.: {l_mx_min:.1f}"))
             self.tabelle_moment.setItem(1, 1, QtWidgets.QTableWidgetItem(f"Max.: {l_my_max:.1f}     Min.: {l_my_min:.1f}"))
             self.tabelle_moment.setItem(1, 2, QtWidgets.QTableWidgetItem(f"Max.: {l_mz_max:.1f}     Min.: {l_mz_min:.1f}"))
 
             # Rechts Momente
-            r_mx_max, r_mx_min = np.max(processed_data[:, 10]), np.min(processed_data[:, 10])
-            r_my_max, r_my_min = np.max(processed_data[:, 11]), np.min(processed_data[:, 11])
-            r_mz_max, r_mz_min = np.max(processed_data[:, 12]), np.min(processed_data[:, 12])
+            r_mx_max, r_mx_min = np.max(data_phys[:, 10]), np.min(data_phys[:, 10])
+            r_my_max, r_my_min = np.max(data_phys[:, 11]), np.min(data_phys[:, 11])
+            r_mz_max, r_mz_min = np.max(data_phys[:, 12]), np.min(data_phys[:, 12])
 
             self.tabelle_moment.setItem(2, 0, QtWidgets.QTableWidgetItem(f"Max.: {r_mx_max:.1f}     Min.: {r_mx_min:.1f}"))
             self.tabelle_moment.setItem(2, 1, QtWidgets.QTableWidgetItem(f"Max.: {r_my_max:.1f}     Min.: {r_my_min:.1f}"))
             self.tabelle_moment.setItem(2, 2, QtWidgets.QTableWidgetItem(f"Max.: {r_mz_max:.1f}     Min.: {r_mz_min:.1f}"))
 
             ### Reaktionzeiten
-            # --- REAKTIONSZEIT-BERECHNUNG (Schwelle: Fz > 15N) ---
-            zeit_vektor = processed_data[:, 0]
-            l_fz = processed_data[:, 3]  # Index 3 = L_Fz
-            r_fz = processed_data[:, 9]  # Index 9 = R_Fz
+            # # --- REAKTIONSZEIT-BERECHNUNG (Schwelle: Fz > 15N) ---
+            # zeit_vektor = data_phys[:, 0]
+            # l_fz = data_phys[:, 3]  # Index 3 = L_Fz
+            # r_fz = data_phys[:, 9]  # Index 9 = R_Fz
 
-            # Indizes finden, wo Fz > 15 N ist
-            idx_links = np.where(l_fz > 15.0)[0]
-            idx_rechts = np.where(r_fz > 15.0)[0]
+            # # Indizes finden, wo Fz > 15 N ist
+            # idx_links = np.where(l_fz > 15.0)[0]
+            # idx_rechts = np.where(r_fz > 15.0)[0]
 
-            # Reaktionszeit Links bestimmen
-            if len(idx_links) > 0:
-                reaktion_links = zeit_vektor[idx_links[0]]
-                text_links = f"{reaktion_links:.3f} s"
-            else:
-                reaktion_links = None
-                text_links = "Kein Wert"
+            # # Reaktionszeit Links bestimmen
+            # if len(idx_links) > 0:
+            #     reaktion_links = zeit_vektor[idx_links[0]]
+            #     text_links = f"{reaktion_links:.3f} s"
+            # else:
+            #     reaktion_links = None
+            #     text_links = "Kein Wert"
 
-            # Reaktionszeit Rechts bestimmen
-            if len(idx_rechts) > 0:
-                reaktion_rechts = zeit_vektor[idx_rechts[0]]
-                text_rechts = f"{reaktion_rechts:.3f} s"
-            else:
-                reaktion_rechts = None
-                text_rechts = "Kein Wert"
+            # # Reaktionszeit Rechts bestimmen
+            # if len(idx_rechts) > 0:
+            #     reaktion_rechts = zeit_vektor[idx_rechts[0]]
+            #     text_rechts = f"{reaktion_rechts:.3f} s"
+            # else:
+            #     reaktion_rechts = None
+            #     text_rechts = "Kein Wert"
+
+            reaktion_links, text_links, reaktion_rechts, text_rechts = self.calc_Movement_Time(data_phys)
 
             # --- TABELLE: tabelle_reaktion_li_re BEFÜLLEN ---
             # Tabelle hat 1 Zeile (Index 0) und 2 Spalten: Spalte 0 = Links, Spalte 1 = Rechts
@@ -697,7 +709,42 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.reset_label(self.status_neue_mess)
             # # Fokus auf den "Neue Messung" Button lenken
             # self.btn_neue_messung.setFocus()
-        
+    
+    """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
+    def calc_Movement_Time(self, data_phys, schwelle = 15.0):
+        """
+        Ermittelt die Reaktionszeiten für die linke und rechte Hand 
+        basierend auf der vertikalen Kraft Fz (> 15 N).
+        Gibt ein Tupel zurück: (reaktion_links, text_links, reaktion_rechts, text_rechts)
+        """
+        # Zeitvektor extrahieren (Spalte 0)
+        zeit_vektor = data_phys[:, 0]
+
+        # Vertikale Kräfte extrahieren (L_Fz = Spalte 3, R_Fz = Spalte 9)
+        l_fz = data_phys[:, 3]
+        r_fz = data_phys[:, 9]
+
+        # Indizes finden, wo Fz > 15 N ist
+        idx_links = np.where(l_fz > schwelle)[0]
+        idx_rechts = np.where(r_fz > schwelle)[0]
+
+        # Reaktionszeit Links bestimmen
+        if len(idx_links) > 0:
+            reaktion_links = zeit_vektor[idx_links[0]]
+            text_links = f"{reaktion_links:.3f} s"
+        else:
+            reaktion_links = None
+            text_links = "Kein Wert"
+
+        # Reaktionszeit Rechts bestimmen
+        if len(idx_rechts) > 0:
+            reaktion_rechts = zeit_vektor[idx_rechts[0]]
+            text_rechts = f"{reaktion_rechts:.3f} s"
+        else:
+            reaktion_rechts = None
+            text_rechts = "Kein Wert"
+
+        return reaktion_links, text_links, reaktion_rechts, text_rechts    
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def play_sound(self, sound):
         # Lade die Sound-Datei
