@@ -156,6 +156,42 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # 0 = Erster Tab, 1 = Zweiter Tab --> Steuerungs-Tab als Standard setzen
         self.tabWidget.setCurrentIndex(0)
 
+        # Variable, die bestimmt, ob beim Tab-Wechsel automatisch Screenshots gemacht werden dürfen
+        self.screenshot_erlaubt = False
+
+        # Signal verbinden: Wenn der Haupt-Tab gewechselt wird, rufe unsere neue automatische Funktion auf
+        self.tabWidget.currentChanged.connect(self.automatischer_tab_screenshot)
+
+    def automatischer_tab_screenshot(self, index):
+        """Macht vollautomatisch einen Screenshot, wenn der User nach einer Messung die Tabs wechselt"""
+        # Wenn aktuell keine Messung zum Sichern bereitsteht, machen wir nichts
+        if not self.screenshot_erlaubt:
+            return
+
+        import os
+        os.makedirs("GUI_Screenshots", exist_ok=True)
+
+        # Name des aktuell geöffneten Haupt-Tabs heraussuchen
+        tab_name = self.tabWidget.tabText(index).replace(" ", "_")
+        zeit = time.strftime("%Y%m%d_%H%M%S")
+        
+        # Falls es der Auswertungs-Tab ist, nehmen wir den Namen des Unter-Tabs gleich mit auf
+        if tab_name == "Auswertungen" and hasattr(self, 'tabWidget_2'):
+            unter_idx = self.tabWidget_2.currentIndex()
+            unter_name = self.tabWidget_2.tabText(unter_idx).replace(" ", "_")
+            dateiname = f"Auto_{tab_name}_{unter_name}_{zeit}.png"
+        else:
+            dateiname = f"Auto_{tab_name}_{zeit}.png"
+
+        filepath = f"GUI_Screenshots/{dateiname}"
+        
+        # Qt einen winzigen Moment Zeit geben, das Fenster auf dem Pi fertig zu zeichnen
+        QtWidgets.QApplication.processEvents()
+        
+        # Bild sichern
+        if self.grab().save(filepath, "PNG"):
+            print(f"Automatischer Screenshot gesichert: {filepath}")
+    
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def starte_messung(self):
         # altes label wenn vorhanden zurücksetzen
@@ -709,6 +745,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.reset_label(self.status_neue_mess)
             # # Fokus auf den "Neue Messung" Button lenken
             # self.btn_neue_messung.setFocus()
+
+            # Schalte die Screenshot-Erlaubnis für das darauffolgende Tab-Wechseln frei
+            self.screenshot_erlaubt = True
     
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def calc_Movement_Time(self, data_phys, schwelle = 15.0):
@@ -761,6 +800,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
 
     def neue_messung(self):
+        # Automatische Screenshots wieder sperren, da alte Daten gelöscht werden
+        self.screenshot_erlaubt = False
+        
         # 1. Speicherstatus prüfen & Nummer nur bei Erfolg hochzählen
         wurde_gespeichert = hasattr(self, 'soll_speichern') and self.soll_speichern
         
@@ -903,10 +945,13 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             print("Not-Aus: Programm wird über ESC beendet.")
             GPIO.cleanup()
             self.close()
+    
     def closeEvent(self, event):
         """Bereinigt die GPIOs beim regulären Schließen des Fensters"""
         GPIO.cleanup()
         event.accept()
+    
+
 
 # Standard-Startblock für PyQt6
 if __name__ == "__main__":
