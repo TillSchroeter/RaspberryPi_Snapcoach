@@ -23,18 +23,16 @@ else:
 
         # 3. Spannung von Kanal 0 lesen (Test-Lesevorgang)
         # Wenn kein Signal anliegt, sollte hier etwas nahe 0V stehen
-        # value_cur = hat.a_in_read(0)
-        # print(f"Test-Messwert Kanal 0: {value_cur:.4f} V")
-        # #Kanal 2
-        # value_cur2 = hat.a_in_read(2)
-        # print(f"Test-Messwert Kanal 2: {value_cur2:.4f} V")
+        value_cur = hat.a_in_read(0)
+        print(f"Test-Messwert Kanal 0: {value_cur:.4f} V")
+        #Kanal 2
+        value_cur2 = hat.a_in_read(2)
+        print(f"Test-Messwert Kanal 2: {value_cur2:.4f} V")
+
+        # Infos
+        print (f"Board-Info: {hat.info()}")
 
 
-
-        # # Infos
-        # # print (f"Board-Info: {hat.info()}")
-
-    
         # print ("______________________________________________")
         # # Wert lesen (mit NOSCALEDATA für den Rohwert)
         # # Kanal 0, OptionFlags.NOSCALEDATA sorgt für den digitalen Wert

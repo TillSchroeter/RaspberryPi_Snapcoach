@@ -1,8 +1,7 @@
 numpy
 daqhats
-matplotlib
-pandas
 pygame
 pyqtgraph
 PyQt6
 scipy
+RPi.GPIO
