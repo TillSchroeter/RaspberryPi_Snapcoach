@@ -1,5 +1,9 @@
 # RaspberryPi_Snapcoach
 Dateien zur Funktionalität von Snapcoach
 
-Main Datei:     app.py
+### Main Datei:     
+app.py
+
+### Benötigten Bibiotheken
+requirements.txt
 
