@@ -1,3 +1,4 @@
+### Bibliotheken importieren
 import sys
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QTimer, Qt
@@ -11,8 +12,6 @@ import pygame
 import RPi.GPIO as GPIO
 from scipy.signal import butter, sosfiltfilt
 
-# from daten import probe_funktion
-# from main import measurement
 
 ### Boards initialisieren
 board_list = hat_list(filter_by_id=HatIDs.MCC_128)
@@ -27,8 +26,6 @@ else:
     hat_rechts = mcc128(board_list[1].address)
     hat_rechts.a_in_mode_write(AnalogInputMode.SE)
     hat_rechts.a_in_range_write(AnalogInputRange.BIP_5V)
-
-### Initialisieren der GPIOs
 
 
 ### styles für die Status-Labels
@@ -52,9 +49,14 @@ style_grün ="""color: #155724;
             padding: 5px;"""
 
 ### Hauptklasse für die Anwendung
-class MeinPiProjekt(QtWidgets.QMainWindow):
+class SnapCoach_UI(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def __init__(self):
+        """
+        INIT Funkion:
+
+        Hier werden alle GUI-Elemente initialisiert, die DAQ-Boards konfiguriert, die Sound-Datei geladen, die Plot-Widgets erstellt und die Button-Funktionen verbunden.
+        """
         ### Initialisierung der Hauptklasse
         super().__init__()
         # Die UI-Datei laden
@@ -89,12 +91,12 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.gruppe_az_option.addButton(self.auto_zero_ja)
         self.gruppe_az_option.addButton(self.auto_zero_nein)
 
-        ### 1. Visuelles Feedback zurücksetzen, signal frame transparent machen und nach hinten schicken
+        ### Visuelles Feedback zurücksetzen, signal frame transparent machen und nach hinten schicken
         self.signal_frame.setStyleSheet("background-color: transparent;")
         self.signal_frame.lower()
 
         ### plotting vorbereiten
-        # 1. Plot-Widgets erstellen
+        # Plot-Widgets erstellen
         self.pw_links_kraft = pg.PlotWidget()
         self.pw_rechts_kraft = pg.PlotWidget()
         self.pw_links_moment = pg.PlotWidget()
@@ -106,13 +108,13 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.pw_links_moment, self.pw_rechts_moment
         ]
 
-        # 2. Die Plot-Widgets in deine Designer-Layouts einbetten
+        # Die Plot-Widgets in deine Designer-Layouts einbetten
         QtWidgets.QVBoxLayout(self.plot_links_kraft).addWidget(self.pw_links_kraft)
         QtWidgets.QVBoxLayout(self.plot_rechts_kraft).addWidget(self.pw_rechts_kraft)
         QtWidgets.QVBoxLayout(self.plot_links_moment).addWidget(self.pw_links_moment)
         QtWidgets.QVBoxLayout(self.plot_rechts_moment).addWidget(self.pw_rechts_moment)
 
-        # 3. Gemeinsame Optik für alle Plots (Schwarze Achsen, Weißer Hintergrund)
+        # Gemeinsame Optik für alle Plots (Schwarze Achsen, Weißer Hintergrund)
         label_style = {'color': '#000', 'font-size': '12pt'}
         
         for pw in self.all_plots:
@@ -128,7 +130,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             # Legende hier EINMALIG erstellen
             pw.addLegend(offset=(10, 10), labelTextColor='k')
 
-        # 4. Spezifische Beschriftungen und Titel
+        # Spezifische Beschriftungen und Titel
         # --- KRAFT ---
         self.pw_links_kraft.setLabel('left', 'Kraft', units='N', **label_style)
         self.pw_links_kraft.setTitle("Linke Hand - Kraft", color="k", size="12pt")
@@ -143,11 +145,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.pw_rechts_moment.setLabel('left', 'Moment', units='Nm', **label_style)
         self.pw_rechts_moment.setTitle("Rechte Hand - Moment", color="k", size="12pt")
 
-        # ### Monospace-Schriftart für tabellarische Textausrichtung erzwingen
-        # font = QtGui.QFont("Courier New", 9)
-        # self.tabelle_kraft.setFont(font)
-        # self.tabelle_moment.setFont(font)
-
         ### Die Buttons mit Funktionen verbinden
         self.btn_start_messung.clicked.connect(self.starte_messung)
         self.btn_neue_messung.clicked.connect(self.neue_messung)
@@ -158,11 +155,11 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def starte_messung(self):
+        """
+        Startet den Messablauf (button wurde betätigt), prüft die Eingabewerte und startet den Trigger
+        """
         # altes label wenn vorhanden zurücksetzen
         self.reset_label(self.status_neue_mess)
-
-        # #Sreenshot von der aktuellen Einstellung
-        # self.screenshot_speichern("00_Vor_Messung_Einstellungen")
 
         ### Prüfen ob Trigger gewählt
         if not self.visuell.isChecked() and not self.akustisch.isChecked():
@@ -172,14 +169,14 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             return
 
         ### Prüfen ob bei messung speichern alles gewählt ist.
-        # 1. Prüfen, ob überhaupt eine Speicher-Option gewählt wurde
+        # Prüfen, ob überhaupt eine Speicher-Option gewählt wurde
         if not self.speichern_ja.isChecked() and not self.speichern_nein.isChecked():
             self.status_mess_start.setText("Bitte Speicher option wählen!")
             self.status_mess_start.setStyleSheet(style_rot)
             QTimer.singleShot(3000, lambda: self.reset_label(self.status_mess_start))
             return
 
-        # 2. Wenn "Ja" gewählt ist, die ComboBoxen prüfen
+        # Wenn "Ja" gewählt ist, die ComboBoxen prüfen
         if self.speichern_ja.isChecked():
             art_wahl = self.box_art.currentText()
             nr_wahl = self.box_ver_nr.currentText()
@@ -190,6 +187,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                 self.status_mess_start.setStyleSheet(style_rot)
                 QTimer.singleShot(3000, lambda: self.reset_label(self.status_mess_start))
                 return
+        
         ### Frage nach Auto-Zero vor der Messung prüfen
         # Prüfen ob die Option "Auto-Zero vor Start" angewählt ist
         if not self.auto_zero_ja.isChecked() and not self.auto_zero_nein.isChecked():
@@ -231,7 +229,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.status_az_frage.setText("Kein Auto-Zero vor der Messung")
             self.status_az_frage.setStyleSheet(style_grau)
 
-        #Variablen
+        # Variablen
         vorbereitung = 2000 #ms
 
         # Vorbereitung: Status setzen für messung starten
@@ -239,9 +237,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.status_mess_start.setStyleSheet(style_grau)
         # Status setzen für Speicherung
         self.status_speichern.setText(self.speicherstatus)
-        
-        # #Sreenshot von der aktuellen Einstellung
-        # self.screenshot_speichern("00_Vor_Messung_Mit_Einstellungen")
 
         # Timer starten: die Funktion 'reset_label' aufrufen
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_mess_start))
@@ -249,33 +244,29 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_auto_zero))
         QTimer.singleShot(vorbereitung, lambda: self.reset_label(self.status_az_frage))
 
-
-        # Hebt den Frame über alle anderen Elemente
-        # self.signal_frame.raise_()
-
         ### Kette starten: wird das Bild WEISS (Vorbereitung für Athlet)
         QTimer.singleShot(vorbereitung, self.trigger_vorbereitung)
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def trigger_vorbereitung(self):
+        """
+        Bereitet den Athleten auf den Reiz vor, indem es ein weißes Bild anzeigt und nach einer zufälligen Zeit den eigentlichen Trigger auslöst.
+        """
         # Frame nach ganz vorne holen und anzeigen
         self.signal_frame.raise_()
         self.signal_frame.show()
         # Weiß machen
         self.signal_frame.setStyleSheet("background-color: white; border: none;")
-        
-        # # WICHTIG: Qt anweisen, das Weiß-Werden sofort auf dem Display zu rendern
-        # QtWidgets.QApplication.processEvents()
-        
-        # # NEU: Screenshot vom weißen Zustand speichern
-        # self.screenshot_speichern("01_Bereit_Weiss")
 
-        # 4. Zufallszeit zwischen 1500ms und 3500ms würfeln
+        ### Zufallszeit zwischen 1500ms und 3500ms würfeln
         zufall_ms = random.randint(1500, 3500)
         
         # Nach dieser Zeit den eigentlichen Reiz auslösen
         QTimer.singleShot(zufall_ms, self.trigger_ausloesen)
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def trigger_ausloesen(self):
+        """
+        Löst den eigentlichen Trigger aus (visuell oder akustisch) und startet die Datenaufnahme.
+        """
         # Sicherheitshalber nochmal nach vorne holen
         self.signal_frame.raise_()
 
@@ -283,11 +274,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         if self.visuell.isChecked():
             self.signal_frame.setStyleSheet("background-color: green;")
             print("VISUELLER REIZ!")
-            # # WICHTIG: Erzwinge das Neuzeichnen (Grün-Werden) JETZT vor dem Screenshot
-            # QtWidgets.QApplication.processEvents()
-            
-            # # NEU: Screenshot vom grünen Zustand speichern
-            # self.screenshot_speichern("02_Reiz_Gruen")
         else:
             # self.signal_frame.setStyleSheet("background-color: blue;")
             self.play_sound(self.sound)
@@ -311,47 +297,46 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
         # messung beenden (Plot anzeigen und Frame zurücksetzen)
         self.messung_beenden(mess_daten_phys)
-        # # 7. Nach Ablauf der Messdauer: Daten anzeigen und Frame wieder transparent
-        # wartezeit_ms = int(dauer * 1000)
-        # QTimer.singleShot(wartezeit_ms, lambda: self.messung_beenden(mess_daten))
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def measurement(self, hat_links, hat_rechts, duration_sec, num_channels = 6, sampling_rate = 1000.0):
+        """
+        Hauptfunktion für die Datenaufnahem der DAQ-Boards. Sie startet die Scans auf beiden Boards, holt die Daten in Blöcken ab, fügt sie in ein großes Array ein und sorgt dafür, dass die Daten synchron bleiben. Am Ende werden alle Scans gestoppt und bereinigt.
+        """
         # sampling_rate = 1000.0
         # num_channels = 6
         # channel_mask = (0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF)     # Maske für alle acht Kanäle (immer von channel 0 bis channel num_channels - 1)
         # 0x77 maske für 0,1,2  4,5,6        
-        total_frames = int(round(duration_sec * sampling_rate))             # round um kleine latenzen aus der GUI auszugleichen
+        total_frames = int(round(duration_sec * sampling_rate))            
         frames_written = 0
-        # Wir speichern als float64 
+        # speichern
         all_data = np.zeros((total_frames, 1 + 2 * num_channels), dtype=np.float64)
 
 
         print(f"Messung wird gestartet: {num_channels} Kanäle bei zwei Boards und {duration_sec}s...")
 
-
+        ### Hier starten wir die Scans auf beiden Boards
+        #links
         hat_links.a_in_scan_start(channel_mask = 0x77,
                             samples_per_channel=0, 
                             sample_rate_per_channel=sampling_rate, 
                             options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA)
-
+        # rechts
         hat_rechts.a_in_scan_start(channel_mask = 0x77,
                             samples_per_channel=0,
                             sample_rate_per_channel=sampling_rate, 
                             options=OptionFlags.CONTINUOUS | OptionFlags.NOSCALEDATA | OptionFlags.EXTCLOCK) # externe Clock
 
-
+        # Wie viel samples aus dem Speicher geholt werden sollen
         samples_per_block = 100
         frames_written = 0
         try:
             while frames_written < total_frames:
-                # 1. Daten abholen (wartet bis zu 0.1s auf die 100 Samples)
+                # Daten abholen (wartet bis zu 0.1s auf die 100 Samples)
                 result1 = hat_links.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
                 result2 = hat_rechts.a_in_scan_read(samples_per_channel=samples_per_block, timeout=0.1)
-                # print ("hier in der Schleife")
 
-                # 2. Prüfen, wie viele Zeilen wir WIRKLICH bekommen haben
-                # (Das löst den ValueError, da wir nicht mehr von festen 100 ausgehen)
+                # Prüfen, wie viele Zeilen wir WIRKLICH bekommen haben
                 actual_count1 = len(result1.data) // num_channels
                 actual_count2 = len(result2.data) // num_channels
                 
@@ -359,22 +344,20 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                 actual_count = min(actual_count1, actual_count2)
 
                 if actual_count > 0:
-                    # print ("hier im if actual_count > 0")
                     # Nur so viele Daten nehmen, wie wir auch wirklich brauchen (total_frames beachten)
                     if frames_written + actual_count > total_frames:
                         actual_count = total_frames - frames_written
 
-                    # 3. Daten in die richtige Form bringen
-                    # Hier nutzen wir jetzt actual_count statt der festen 100
+                    # Daten in die richtige Form bringen
                     block1 = np.array(result1.data[:actual_count * num_channels], dtype=np.float64).reshape(actual_count, num_channels)
                     block2 = np.array(result2.data[:actual_count * num_channels], dtype=np.float64).reshape(actual_count, num_channels)
                     
-                    # 4. Zeitstempel für diesen Block berechnen
+                    # Zeitstempel für diesen Block berechnen
                     t_start = (frames_written + 1) / sampling_rate
                     t_end = (frames_written + actual_count) / sampling_rate
                     t_block = np.linspace(t_start, t_end, actual_count)
 
-                    # 5. In das Haupt-Array einfügen
+                    # In das Haupt-Array einfügen
                     idx_end = frames_written + actual_count
                     all_data[frames_written:idx_end, 0] = t_block
                     all_data[frames_written:idx_end, 1:1+num_channels] = block1
@@ -409,7 +392,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # =========================================================================
         # 1. METADATEN DYNAMISCH AUS DER GUI/KLASSE HOLEN
         # =========================================================================
-        # Falls deine Variablen anders heißen, hier die Namen kurz anpassen:
         messart = self.box_art.currentText() if hasattr(self, 'box_art') else "Unbekannt"
         versuchsnummer = self.box_ver_nr.currentText() if hasattr(self, 'box_ver_nr') else "Unbekannt"
         dauer = self.par_dauer.value() if hasattr(self, 'par_dauer') else "Unbekannt"
@@ -433,7 +415,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             auto_zero_status = "Unbekannt"
         
         # Movement Times exrahieren
-        reaktion_links, _, reaktion_rechts, _ = self.calc_Movement_Time(data_phys[:frames_written, :])
+        reaktion_links, _, reaktion_rechts, _ = self.Berechne_Movement_Time(data_phys[:frames_written, :])
 
         # Floats sauber für die CSV formatieren. Falls kein Wert vorhanden ist, schreiben wir NaN (Not a Number)
         val_links = f"{reaktion_links:.3f}" if reaktion_links is not None else "NaN"
@@ -457,8 +439,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         data_columns = ",".join(header_list)
 
         # Zusammenfügen der drei Zeilen (getrennt durch Zeilenumbrüche \n)
-        # NumPy setzt standardmäßig ein '#' vor den Header. Mit comments='' unterdrücken wir das,
-        # damit die Datei sofort rein als CSV gelesen werden kann.
         kompletter_header = f"{meta_names}\n{meta_values}\n{data_columns}"
 
         # =========================================================================
@@ -467,19 +447,17 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # '%.4f' für die Zeit, '%.2f' für alle nachfolgenden Kräfte und Momente
         fmt = ['%.4f'] + ['%.2f'] * (data_phys.shape[1] - 1)
         
-        try:
-            # Wir speichern nur die tatsächlich geschriebenen Zeilen (frames_written)
-            np.savetxt(
-                dateiname, 
-                data_phys[:frames_written, :], 
-                delimiter=",", 
-                header=kompletter_header, 
-                comments='', 
-                fmt=fmt
-            )
-            print("CSV-Datei inklusive strukturiertem Metadaten-Header erfolgreich gespeichert!")
-        except Exception as e:
-            print(f"Fehler beim Speichern der CSV: {e}")
+        # Wir speichern nur die tatsächlich geschriebenen Zeilen (frames_written)
+        np.savetxt(
+            dateiname, 
+            data_phys[:frames_written, :], 
+            delimiter=",", 
+            header=kompletter_header, 
+            comments='', 
+            fmt=fmt
+        )
+        print("CSV-Datei inklusive strukturiertem Metadaten-Header erfolgreich gespeichert!")
+
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def werte_verarbeiten(self, all_data):
         """
@@ -492,10 +470,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         [7-9]: Fx, Fy, Fz (Board 2 - Rechts)
         [10-12]: Mx, My, Mz (Board 2 - Rechts)
         """
-        # 1. Kopie erstellen
+        # Kopie erstellen
         data_phys = np.copy(all_data).astype(np.float64)
         
-        # 2. Definition der Skalierungsfaktoren (MaxLoad / 32768)
+        # Definition der Skalierungsfaktoren (MaxLoad / 32768)
         f_fx_fy = 5000.0 / 32768.0      # Fx und Fy haben den faktor 5000 N bei voller Auslenkung
         f_fz    = 10000.0 / 32768.0     # Fz hat den faktor 10000 N bei voller Auslenkung
         f_mx    = 3000.0 / 32768.0      # Mx hat den faktor 3000 Nm bei voller Auslenkung
@@ -505,7 +483,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         # für alle daten einmal die Mitte des Messbereiches vom ADC rohwert abziehen
         # Formel: Kraft (N) = (ADC_Rohwert - 32768) * (Maximalbereich(N) / 32768)
         data_phys[:, 1:] -= 32768.0
-        # 3. Faktoren auf Board 1 (Links) anwenden
+        # Faktoren auf Board 1 (Links) anwenden
         data_phys[:, 1] *= f_fx_fy  # CH0: Fx
         data_phys[:, 2] *= f_fx_fy  # CH1: Fy
         data_phys[:, 3] *= f_fz     # CH2: Fz
@@ -513,7 +491,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         data_phys[:, 5] *= f_my     # CH4: My
         data_phys[:, 6] *= f_mz     # CH5: Mz
 
-        # 4. Faktoren auf Board 2 (Rechts) anwenden
+        # Faktoren auf Board 2 (Rechts) anwenden
         data_phys[:, 7] *= f_fx_fy  # CH0: Fx
         data_phys[:, 8] *= f_fx_fy  # CH1: Fy
         data_phys[:, 9] *= f_fz     # CH2: Fz
@@ -554,12 +532,14 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def messung_beenden(self, data_phys):
             """
+            Beendet die Messung und verarbeitet die gesammelten Daten.
+
             processed_data Aufbau:
             [0]: Zeit
             [1-3]: L_Fx, L_Fy, L_Fz | [4-6]: L_Mx, L_My, L_Mz
             [7-9]: R_Fx, R_Fy, R_Fz | [10-12]: R_Mx, R_My, R_Mz
             """
-            # --- TRIGGERART IM LABEL ANZEIGEN ---
+            # TRIGGERART IM LABEL ANZEIGEN 
             if self.visuell.isChecked():
                 self.par_bedingung.setText("Visueller Reiz")
                 self.par_bedingung.setStyleSheet(style_grün)
@@ -567,15 +547,14 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
                 self.par_bedingung.setText("Akustischer Reiz")
                 self.par_bedingung.setStyleSheet(style_grün)
 
-            # 1. Visuelles Feedback zurücksetzen
+            # Visuelles Feedback zurücksetzen
             self.signal_frame.setStyleSheet("background-color: transparent;")
             self.signal_frame.lower()
 
-            # 2. Zum Tab-Widget für die Graphen wechseln (Plotting-Tab)
+            # Zum Tab-Widget für die Graphen wechseln (Plotting-Tab)
             self.tabWidget.setCurrentIndex(1) 
 
-            # Vorherige Plots löschen - Die Legende bleibt durch das clear() 
-            # erhalten, wird aber geleert und beim Plotten neu befüllt.
+            # Vorherige Plots löschen - Die Legende bleibt durch das clear() erhalten, wird aber geleert und beim Plotten neu befüllt
             self.pw_links_kraft.clear()
             self.pw_rechts_kraft.clear()
             self.pw_links_moment.clear()
@@ -611,7 +590,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.pw_rechts_moment.plot(zeit, data_phys[:, 11], pen=pen_y, name="My")
             self.pw_rechts_moment.plot(zeit, data_phys[:, 12], pen=pen_z, name="Mz")
 
-            # 3. Zoom anpassen
+            # Zoom anpassen
             for pw in [self.pw_links_kraft, self.pw_rechts_kraft, self.pw_links_moment, self.pw_rechts_moment]:
                 pw.autoRange()
             
@@ -654,33 +633,8 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.tabelle_moment.setItem(2, 1, QtWidgets.QTableWidgetItem(f"Max.: {r_my_max:.1f}     Min.: {r_my_min:.1f}"))
             self.tabelle_moment.setItem(2, 2, QtWidgets.QTableWidgetItem(f"Max.: {r_mz_max:.1f}     Min.: {r_mz_min:.1f}"))
 
-            ### Reaktionzeiten
-            # # --- REAKTIONSZEIT-BERECHNUNG (Schwelle: Fz > 15N) ---
-            # zeit_vektor = data_phys[:, 0]
-            # l_fz = data_phys[:, 3]  # Index 3 = L_Fz
-            # r_fz = data_phys[:, 9]  # Index 9 = R_Fz
-
-            # # Indizes finden, wo Fz > 15 N ist
-            # idx_links = np.where(l_fz > 15.0)[0]
-            # idx_rechts = np.where(r_fz > 15.0)[0]
-
-            # # Reaktionszeit Links bestimmen
-            # if len(idx_links) > 0:
-            #     reaktion_links = zeit_vektor[idx_links[0]]
-            #     text_links = f"{reaktion_links:.3f} s"
-            # else:
-            #     reaktion_links = None
-            #     text_links = "Kein Wert"
-
-            # # Reaktionszeit Rechts bestimmen
-            # if len(idx_rechts) > 0:
-            #     reaktion_rechts = zeit_vektor[idx_rechts[0]]
-            #     text_rechts = f"{reaktion_rechts:.3f} s"
-            # else:
-            #     reaktion_rechts = None
-            #     text_rechts = "Kein Wert"
-
-            reaktion_links, text_links, reaktion_rechts, text_rechts = self.calc_Movement_Time(data_phys)
+            ### --- Movement Time BERECHNEN ---
+            reaktion_links, text_links, reaktion_rechts, text_rechts = self.Berechne_Movement_Time(data_phys)
 
             # --- TABELLE: tabelle_reaktion_li_re BEFÜLLEN ---
             # Tabelle hat 1 Zeile (Index 0) und 2 Spalten: Spalte 0 = Links, Spalte 1 = Rechts
@@ -707,11 +661,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
             self.set_ui_enabled(False)
             # altes label wenn vorhanden zurücksetzen
             self.reset_label(self.status_neue_mess)
-            # # Fokus auf den "Neue Messung" Button lenken
-            # self.btn_neue_messung.setFocus()
     
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
-    def calc_Movement_Time(self, data_phys, schwelle = 15.0):
+    def Berechne_Movement_Time(self, data_phys, schwelle = 15.0):
         """
         Ermittelt die Reaktionszeiten für die linke und rechte Hand 
         basierend auf der vertikalen Kraft Fz (> 15 N).
@@ -747,8 +699,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         return reaktion_links, text_links, reaktion_rechts, text_rechts    
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def play_sound(self, sound):
+        """Spielt den akustischen Reiz ab, wenn dieser in der GUI ausgewählt wurde."""
         # Lade die Sound-Datei
-        sound.set_volume(0.5)  # 10% Lautstärke
+        sound.set_volume(0.5)  # 50% Lautstärke
         
         # Spiele den Sound ab
         # print("Spiele Ton ab...")
@@ -761,8 +714,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
 
     def neue_messung(self):
-        
-        # 1. Speicherstatus prüfen & Nummer nur bei Erfolg hochzählen
+        """
+        Setzt die GUI zurück für eine neue Messung und prüft den Speicherstatus der vorherigen Messung
+        """
+        # Speicherstatus prüfen & Nummer nur bei Erfolg hochzählen
         wurde_gespeichert = hasattr(self, 'soll_speichern') and self.soll_speichern
         
         if wurde_gespeichert and self.aktueller_dateiname:
@@ -776,10 +731,10 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         else:
             status_text = "Letzte Messung nicht gespeichert.\nBereit für neue Messung!"
 
-        # 2. UI wieder freigeben
+        # UI wieder freigeben
         self.set_ui_enabled(True)
 
-        # 3. RadioButtons wirklich abwählen (über die ButtonGroups)
+        # RadioButtons wirklich abwählen (über die ButtonGroups)
         self.gruppe_speichern.setExclusive(False)
         self.gruppe_trigger.setExclusive(False)
         self.gruppe_az_option.setExclusive(False)
@@ -795,27 +750,27 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         self.gruppe_trigger.setExclusive(True)
         self.gruppe_az_option.setExclusive(True)
 
-        # 4. Restliches Feedback
+        # Restliches Feedback
         self.status_neue_mess.setText(status_text)
         self.status_neue_mess.setStyleSheet(style_grün)
         for pw in self.all_plots:
             pw.clear()
         
-        # Tabellen-Inhalte leeren (ohne die Header zu löschen)
+        ### Tabellen-Inhalte leeren (ohne die Header zu löschen)
         tabellen_liste = [
             self.tabelle_kraft, 
             self.tabelle_moment, 
             self.tabelle_reaktion_li_re, 
             self.tabelle_reaktion_durchschnitt
         ]
-        # Tabellen-Inhalte struktursicher leeren
-        # 1. Kraft- und Momententabelle: Erst ab Zeile 1 (Index 1) leeren, um Header-Texte zu schützen
+
+        # Kraft- und Momententabelle: Erst ab Zeile 1 (Index 1) leeren, um Header-Texte zu schützen
         for tabelle in [self.tabelle_kraft, self.tabelle_moment]:
             for row in range(1, tabelle.rowCount()):  # Startet bei 1 statt 0
                 for col in range(tabelle.columnCount()):
                     tabelle.setItem(row, col, QtWidgets.QTableWidgetItem(""))
 
-        # 2. Reaktionstabellen: Komplett ab Zeile 0 (Index 0) leeren
+        # Reaktionstabellen: Komplett ab Zeile 0 (Index 0) leeren
         for tabelle in [self.tabelle_reaktion_li_re, self.tabelle_reaktion_durchschnitt]:
             for row in range(tabelle.rowCount()):      # Startet komplett bei 0
                 for col in range(tabelle.columnCount()):
@@ -823,8 +778,6 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
         
         # altes label wenn vorhanden zurücksetzen
         self.reset_label(self.par_bedingung)
-        
-        # QTimer.singleShot(4000, lambda: self.reset_label(self.status_neue_mess))
     
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def set_ui_enabled(self, state):
@@ -844,6 +797,7 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
 
     """--------------------------------------------------------------------------------------------------------------------------------------------------------------"""
     def reset_label(self, name_button):
+        """Setzt den Text eines Labels zurück und entfernt die Hintergrundfarbe"""
         # Den Text wieder leeren und Hintergrund entfernen
         name_button.setText("")
         name_button.setStyleSheet("background-color: transparent;")
@@ -912,9 +866,9 @@ class MeinPiProjekt(QtWidgets.QMainWindow):
     
 
 
-# Standard-Startblock für PyQt6
+### Standard-Startblock für PyQt6
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    window = MeinPiProjekt()
+    window = SnapCoach_UI()
     window.show()
     sys.exit(app.exec())
